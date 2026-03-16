@@ -50,16 +50,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            set -e
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            IMAGE="ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-
-            # Pull the new image (GHCR is public, no auth needed for read)
-            sudo k3s ctr images pull "$IMAGE"
-
-            # Point the deployment at the new versioned tag
-            sudo kubectl -n aeisoftware set image deployment/portal portal="$IMAGE"
-            sudo kubectl -n aeisoftware patch deployment portal \
-              -p '{"spec":{"template":{"spec":{"containers":[{"name":"portal","imagePullPolicy":"IfNotPresent"}]}}}}'
-
+            # imagePullPolicy: Always in the manifest means k3s will pull the
+            # new :latest from GHCR automatically when the pod restarts.
+            sudo kubectl -n aeisoftware rollout restart deployment/portal
             sudo kubectl -n aeisoftware rollout status deployment/portal --timeout=120s
