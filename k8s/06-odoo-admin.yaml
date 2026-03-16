@@ -1,6 +1,6 @@
 ---
-# Single shared Odoo 18 instance for admin use (portal.aeisoftware.com/odoo)
-# This is the instance with the odoo_k8s_saas addon installed
+# Single shared Odoo 18 instance for admin use (admin.aeisoftware.com)
+# Includes the odoo_k8s_saas addon, cloned from GitHub on each pod start.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -22,19 +22,36 @@ spec:
       storage: 20Gi
 
 ---
+# Secret holding the real passwords for the admin Odoo instance.
+# DB_PASSWORD must match POSTGRES_PASSWORD in namespace aeisoftware.
+# To regenerate a value: echo -n "$(openssl rand -base64 24)" | base64
+apiVersion: v1
+kind: Secret
+metadata:
+  name: odoo-admin-secret
+  namespace: odoo-admin
+type: Opaque
+data:
+  DB_PASSWORD: QWVpc29mdHdhcmUyMDI2Kw==
+  ADMIN_PASSWD: QWVpc29mdHdhcmUyMDI2Kw==
+
+---
+# ConfigMap stores the odoo.conf TEMPLATE.
+# ${DB_PASSWORD} and ${ADMIN_PASSWD} are substituted at startup by the
+# render-config init container using envsubst.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: odoo-admin-conf
   namespace: odoo-admin
 data:
-  odoo.conf: |
+  odoo.conf.tmpl: |
     [options]
     db_host = postgres.aeisoftware.svc.cluster.local
     db_port = 5432
     db_user = odoo
-    db_password = REPLACE_AT_DEPLOY
-    admin_passwd = REPLACE_AT_DEPLOY
+    db_password = ${DB_PASSWORD}
+    admin_passwd = ${ADMIN_PASSWD}
     dbfilter = ^odoo_admin$
     list_db = False
     addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
@@ -63,6 +80,7 @@ spec:
         app: odoo-admin
     spec:
       initContainers:
+        # 1. Clone the SaaS addon from GitHub
         - name: copy-addon
           image: alpine/git
           command:
@@ -75,14 +93,52 @@ spec:
           volumeMounts:
             - name: odoo-addons
               mountPath: /mnt/extra-addons
+
+        # 2. Render odoo.conf from template, injecting real secret values
+        - name: render-config
+          image: alpine:3.19
+          command:
+            - sh
+            - -c
+            - |
+              apk add --no-cache gettext >/dev/null 2>&1
+              envsubst < /tmpl/odoo.conf.tmpl > /etc/odoo/odoo.conf
+              echo "odoo.conf rendered:"
+              cat /etc/odoo/odoo.conf
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: odoo-admin-secret
+                  key: DB_PASSWORD
+            - name: ADMIN_PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: odoo-admin-secret
+                  key: ADMIN_PASSWD
+          volumeMounts:
+            - name: odoo-conf-tmpl
+              mountPath: /tmpl
+            - name: odoo-conf-rendered
+              mountPath: /etc/odoo
+
       containers:
         - name: odoo
           image: odoo:18
           ports:
             - containerPort: 8069
             - containerPort: 8072
+          env:
+            - name: SAAS_PORTAL_URL
+              value: "http://portal.aeisoftware.svc.cluster.local:8000"
+            - name: SAAS_PORTAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: portal-secret
+                  key: API_KEY
+                  optional: true
           volumeMounts:
-            - name: odoo-conf
+            - name: odoo-conf-rendered
               mountPath: /etc/odoo
             - name: odoo-data
               mountPath: /var/lib/odoo
@@ -102,10 +158,13 @@ spec:
             limits:
               cpu: 1
               memory: 2Gi
+
       volumes:
-        - name: odoo-conf
+        - name: odoo-conf-tmpl
           configMap:
             name: odoo-admin-conf
+        - name: odoo-conf-rendered
+          emptyDir: {}
         - name: odoo-data
           persistentVolumeClaim:
             claimName: odoo-admin-data
