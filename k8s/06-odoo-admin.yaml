@@ -32,7 +32,7 @@ metadata:
   namespace: odoo-admin
 type: Opaque
 data:
-  DB_PASSWORD: QWVpc29mdHdhcmUyMDI2Kw==
+  DB_PASSWORD: RGV2UGFzczIwMjYh
   ADMIN_PASSWD: QWVpc29mdHdhcmUyMDI2Kw==
 
 ---
@@ -87,7 +87,7 @@ spec:
             - sh
             - -c
             - |
-              git clone --depth=1 https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
+              git clone --depth=1 -b feature/sales-integration https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
               cp -r /tmp/repo/odoo_k8s_saas /mnt/extra-addons/
               echo "Addon copied OK"
           volumeMounts:

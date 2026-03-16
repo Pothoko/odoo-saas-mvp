@@ -105,13 +105,19 @@ class AccountMove(models.Model):
                         "Failed to auto-provision %s", instance.tenant_id
                     )
 
-                # Send email
-                template = self.env.ref(
-                    "odoo_k8s_saas.mail_template_instance_provisioned",
-                    raise_if_not_found=False,
-                )
-                if template:
-                    template.send_mail(instance.id, force_send=True)
+                # Send email (best-effort — don't rollback instance on failure)
+                try:
+                    template = self.env.ref(
+                        "odoo_k8s_saas.mail_template_instance_provisioned",
+                        raise_if_not_found=False,
+                    )
+                    if template:
+                        template.send_mail(instance.id, force_send=True)
+                except Exception:
+                    logger.exception(
+                        "Failed to send provisioning email for %s",
+                        instance.tenant_id,
+                    )
 
     @api.model
     def _get_saas_category(self):
