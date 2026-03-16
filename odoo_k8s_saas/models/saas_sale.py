@@ -25,6 +25,10 @@ class AccountMove(models.Model):
         """Detect when payment_state changes to 'paid' and provision SaaS."""
         res = super().write(vals)
         if vals.get("payment_state") in ("paid", "in_payment"):
+            logger.info(
+                "SaaS trigger: payment_state → %s for %s invoice(s)",
+                vals["payment_state"], len(self),
+            )
             for move in self.filtered(
                 lambda m: m.move_type == "out_invoice"
                 and m.payment_state in ("paid", "in_payment")
@@ -40,15 +44,20 @@ class AccountMove(models.Model):
     def _saas_check_and_provision(self):
         """Find SaaS lines from the linked sale orders and provision."""
         self.ensure_one()
+        logger.info("SaaS check: invoice %s (type=%s)", self.name, self.move_type)
+
         # Get the sale orders linked to this invoice
         sale_orders = self.line_ids.sale_line_ids.order_id
         if not sale_orders:
+            logger.info("SaaS check: no linked sale orders — skipping.")
             return
+        logger.info("SaaS check: linked SOs = %s", sale_orders.mapped("name"))
 
-        saas_category = self.env.ref(SAAS_CATEGORY_XMLID, raise_if_not_found=False)
+        saas_category = self._get_saas_category()
         if not saas_category:
-            logger.warning("Product category '%s' not found — skipping.", SAAS_CATEGORY_XMLID)
+            logger.warning("SaaS check: no SaaS product category found — skipping.")
             return
+        logger.info("SaaS check: using category '%s' (id=%s)", saas_category.name, saas_category.id)
 
         Instance = self.env["saas.instance"]
 
@@ -103,6 +112,22 @@ class AccountMove(models.Model):
                 )
                 if template:
                     template.send_mail(instance.id, force_send=True)
+
+    @api.model
+    def _get_saas_category(self):
+        """Resolve the SaaS product category — XML ID first, then name search."""
+        cat = self.env.ref(SAAS_CATEGORY_XMLID, raise_if_not_found=False)
+        if cat:
+            return cat
+        # Fallback: search by name pattern (handles manual creation)
+        cat = self.env["product.category"].search(
+            [("name", "ilike", "odoo%saas")], limit=1
+        )
+        if cat:
+            logger.info(
+                "SaaS category found by name fallback: '%s' (id=%s)", cat.name, cat.id
+            )
+        return cat
 
     @api.model
     def _is_saas_category(self, categ, saas_categ):
