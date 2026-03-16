@@ -90,6 +90,8 @@ workers = 2
 max_cron_threads = 1
 gevent_port = 8072
 proxy_mode = True
+init = base
+without_demo = all
 """
     return {
         "apiVersion": "v1",
@@ -123,6 +125,7 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                         {
                             "name": "odoo",
                             "image": ODOO_IMAGE,
+                            "args": ["--config=/etc/odoo/odoo.conf"],
                             "ports": [
                                 {"containerPort": 8069},
                                 {"containerPort": 8072},
@@ -140,9 +143,9 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                             ],
                             "readinessProbe": {
                                 "httpGet": {"path": "/web/health", "port": 8069},
-                                "initialDelaySeconds": 60,
-                                "periodSeconds": 10,
-                                "failureThreshold": 30,
+                                "initialDelaySeconds": 90,
+                                "periodSeconds": 15,
+                                "failureThreshold": 40,
                             },
                             "resources": {
                                 "requests": {"cpu": "100m", "memory": "512Mi"},
