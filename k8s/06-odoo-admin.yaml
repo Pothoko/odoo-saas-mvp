@@ -1,0 +1,160 @@
+---
+# Single shared Odoo 18 instance for admin use (portal.aeisoftware.com/odoo)
+# This is the instance with the odoo_k8s_saas addon installed
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: odoo-admin
+  labels:
+    managed-by: manual
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-admin-data
+  namespace: odoo-admin
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odoo-admin-conf
+  namespace: odoo-admin
+data:
+  odoo.conf: |
+    [options]
+    db_host = postgres.aeisoftware.svc.cluster.local
+    db_port = 5432
+    db_user = odoo
+    db_password = REPLACE_AT_DEPLOY
+    admin_passwd = REPLACE_AT_DEPLOY
+    dbfilter = ^odoo_admin$
+    list_db = False
+    addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+    data_dir = /var/lib/odoo
+    workers = 1
+    max_cron_threads = 1
+    gevent_port = 8072
+    proxy_mode = True
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odoo-admin
+  namespace: odoo-admin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: odoo-admin
+  template:
+    metadata:
+      labels:
+        app: odoo-admin
+    spec:
+      initContainers:
+        - name: copy-addon
+          image: alpine
+          command:
+            - sh
+            - -c
+            - |
+              # addon is baked into the image at /addon-src
+              # copy to shared volume for odoo to pick up
+              cp -r /addon-src/odoo_k8s_saas /mnt/extra-addons/
+          volumeMounts:
+            - name: odoo-addons
+              mountPath: /mnt/extra-addons
+      containers:
+        - name: odoo
+          image: odoo:18
+          ports:
+            - containerPort: 8069
+            - containerPort: 8072
+          volumeMounts:
+            - name: odoo-conf
+              mountPath: /etc/odoo
+            - name: odoo-data
+              mountPath: /var/lib/odoo
+            - name: odoo-addons
+              mountPath: /mnt/extra-addons
+          readinessProbe:
+            httpGet:
+              path: /web/health
+              port: 8069
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 2Gi
+      volumes:
+        - name: odoo-conf
+          configMap:
+            name: odoo-admin-conf
+        - name: odoo-data
+          persistentVolumeClaim:
+            claimName: odoo-admin-data
+        - name: odoo-addons
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo-admin-svc
+  namespace: odoo-admin
+spec:
+  selector:
+    app: odoo-admin
+  ports:
+    - name: http
+      port: 8069
+      targetPort: 8069
+    - name: longpoll
+      port: 8072
+      targetPort: 8072
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odoo-admin-ingress
+  namespace: odoo-admin
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-odoo-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: admin.aeisoftware.com
+      http:
+        paths:
+          - path: /websocket
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo-admin-svc
+                port:
+                  number: 8072
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo-admin-svc
+                port:
+                  number: 8069

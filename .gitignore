@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# K8s secrets with real values — never commit
+k8s/01-secrets-real.yaml
+
+# Editor
+.idea/
+.vscode/
+*.swp
