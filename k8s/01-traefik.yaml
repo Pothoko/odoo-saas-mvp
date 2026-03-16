@@ -1,0 +1,29 @@
+# Traefik Ingress Controller via k3s HelmChart CRD
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  repo: https://traefik.github.io/charts
+  chart: traefik
+  targetNamespace: kube-system
+  valuesContent: |-
+    service:
+      type: ClusterIP
+    ports:
+      web:
+        port: 8000
+        exposedPort: 80
+    ingressClass:
+      enabled: true
+      isDefaultClass: true
+      name: traefik
+    providers:
+      kubernetesIngress:
+        enabled: true
+      kubernetesCRD:
+        enabled: true
+    logs:
+      general:
+        level: INFO

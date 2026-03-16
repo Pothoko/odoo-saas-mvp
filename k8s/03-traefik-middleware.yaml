@@ -1,0 +1,12 @@
+# Traefik Middleware CRD — adds X-Forwarded-Proto: https header
+# Referenced by tenant ingresses as "kube-system-odoo-headers@kubernetescrd"
+# (Traefik naming: <namespace>-<name>@kubernetescrd)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: odoo-headers
+  namespace: kube-system
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Proto: "https"
