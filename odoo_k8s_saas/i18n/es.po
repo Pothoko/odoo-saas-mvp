@@ -1,8 +1,10 @@
 # Translation of Odoo Server.
-# This file contains the Spanish translation of the Odoo module "Odoo K8s SaaS".
+# This file contains the translation of the following modules:
+#	* odoo_k8s_saas
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo K8s SaaS 18.0.1.0.0\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-16 00:00+0000\n"
 "PO-Revision-Date: 2026-03-16 00:00+0000\n"
@@ -12,103 +14,152 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# --- Model description ---
+#. module: odoo_k8s_saas
+#: model:ir.model,name:odoo_k8s_saas.model_saas_instance
 msgid "SaaS Tenant Instance"
 msgstr "Instancia de Inquilino SaaS"
 
-# --- Field labels ---
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__name
 msgid "Instance Name"
 msgstr "Nombre de Instancia"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__tenant_id
 msgid "Tenant ID"
 msgstr "ID de Inquilino"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__url
 msgid "URL"
 msgstr "URL"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__namespace
 msgid "K8s Namespace"
 msgstr "Espacio de Nombres K8s"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__partner_id
 msgid "Customer"
 msgstr "Cliente"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__plan
 msgid "Plan"
 msgstr "Plan"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__storage_gi
 msgid "Storage (GB)"
 msgstr "Almacenamiento (GB)"
 
+#. module: odoo_k8s_saas
+#: model:ir.model.fields,field_description:odoo_k8s_saas.field_saas_instance__last_error
 msgid "Error"
 msgstr "Error"
 
-# --- State values ---
+#. module: odoo_k8s_saas
+#: selection:saas.instance,state:draft
 msgid "Draft"
 msgstr "Borrador"
 
+#. module: odoo_k8s_saas
+#: selection:saas.instance,state:provisioning
 msgid "Provisioning"
 msgstr "Aprovisionando"
 
+#. module: odoo_k8s_saas
+#: selection:saas.instance,state:ready
 msgid "Ready"
 msgstr "Listo"
 
+#. module: odoo_k8s_saas
+#: selection:saas.instance,state:error
+msgid "Error"
+msgstr "Error"
+
+#. module: odoo_k8s_saas
+#: selection:saas.instance,state:deleted
 msgid "Deleted"
 msgstr "Eliminado"
 
-# --- Plan values ---
+#. module: odoo_k8s_saas
+#: selection:saas.instance,plan:starter
 msgid "Starter"
 msgstr "Inicial"
 
+#. module: odoo_k8s_saas
+#: selection:saas.instance,plan:pro
 msgid "Pro"
 msgstr "Pro"
 
+#. module: odoo_k8s_saas
+#: selection:saas.instance,plan:enterprise
 msgid "Enterprise"
 msgstr "Empresarial"
 
-# --- Form view group labels ---
-msgid "Identity"
-msgstr "Identidad"
-
-msgid "Configuration"
-msgstr "Configuración"
-
-# --- Button labels ---
+#. module: odoo_k8s_saas
+#: view:saas.instance:odoo_k8s_saas.view_saas_instance_form
 msgid "Provision"
 msgstr "Aprovisionar"
 
+#. module: odoo_k8s_saas
+#: view:saas.instance:odoo_k8s_saas.view_saas_instance_form
 msgid "Refresh Status"
 msgstr "Actualizar Estado"
 
+#. module: odoo_k8s_saas
+#: view:saas.instance:odoo_k8s_saas.view_saas_instance_form
 msgid "Delete Instance"
 msgstr "Eliminar Instancia"
 
-# --- Menu items ---
+#. module: odoo_k8s_saas
+#: view:saas.instance:odoo_k8s_saas.view_saas_instance_form
+msgid "Identity"
+msgstr "Identidad"
+
+#. module: odoo_k8s_saas
+#: view:saas.instance:odoo_k8s_saas.view_saas_instance_form
+msgid "Configuration"
+msgstr "Configuración"
+
+#. module: odoo_k8s_saas
+#: model:ir.ui.menu,name:odoo_k8s_saas.menu_saas_root
 msgid "SaaS"
 msgstr "SaaS"
 
+#. module: odoo_k8s_saas
+#: model:ir.ui.menu,name:odoo_k8s_saas.menu_saas_instances
 msgid "Instances"
 msgstr "Instancias"
 
+#. module: odoo_k8s_saas
+#: model:ir.actions.act_window,name:odoo_k8s_saas.action_saas_instance
 msgid "SaaS Instances"
 msgstr "Instancias SaaS"
 
-# --- Cron ---
+#. module: odoo_k8s_saas
+#: model:ir.cron,name:odoo_k8s_saas.ir_cron_saas_refresh
 msgid "SaaS: Refresh Instance Status"
 msgstr "SaaS: Actualizar Estado de Instancias"
 
-# --- Error messages ---
+#. module: odoo_k8s_saas
+#: code:addons/odoo_k8s_saas/models/saas_instance.py:0
+#, python-format
 msgid "Can only provision from Draft or Error state."
 msgstr "Solo se puede aprovisionar desde el estado Borrador o Error."
 
+#. module: odoo_k8s_saas
+#: code:addons/odoo_k8s_saas/models/saas_instance.py:0
+#, python-format
 msgid "Provisioning failed: %s"
 msgstr "El aprovisionamiento falló: %s"
 
+#. module: odoo_k8s_saas
+#: code:addons/odoo_k8s_saas/models/saas_instance.py:0
+#, python-format
 msgid "Delete failed: %s"
 msgstr "La eliminación falló: %s"
-
-# --- Field tooltips ---
-msgid "Human-readable name"
-msgstr "Nombre legible para el usuario"
-
-msgid "Slug used as subdomain: e.g. 'demo' → demo.aeisoftware.com"
-msgstr "Identificador usado como subdominio: ej. 'demo' → demo.aeisoftware.com"
