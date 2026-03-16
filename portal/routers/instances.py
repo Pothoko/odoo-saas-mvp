@@ -13,8 +13,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 import re
 
-from ..k8s_utils.manifests import all_manifests
-from ..k8s_utils.client import apply_manifest, delete_namespace, get_deployment_status
+from k8s_utils.manifests import all_manifests, BASE_DOMAIN
+from k8s_utils.client import apply_manifest, delete_namespace, get_deployment_status
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -66,7 +66,7 @@ def create_instance(req: CreateInstanceRequest):
             logger.exception("Error applying manifest %s", m.get("kind"))
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    from ..k8s_utils.manifests import BASE_DOMAIN
+
     return InstanceResponse(
         tenant_id=req.tenant_id,
         namespace=f"odoo-{req.tenant_id}",
@@ -84,7 +84,7 @@ def get_instance(tenant_id: str):
     if info["phase"] == "NotFound":
         raise HTTPException(status_code=404, detail="Instance not found")
 
-    from ..k8s_utils.manifests import BASE_DOMAIN
+
     status = "ready" if info["ready"] else "provisioning"
     return InstanceResponse(
         tenant_id=tenant_id,

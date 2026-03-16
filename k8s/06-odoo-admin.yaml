@@ -64,14 +64,14 @@ spec:
     spec:
       initContainers:
         - name: copy-addon
-          image: alpine
+          image: alpine/git
           command:
             - sh
             - -c
             - |
-              # addon is baked into the image at /addon-src
-              # copy to shared volume for odoo to pick up
-              cp -r /addon-src/odoo_k8s_saas /mnt/extra-addons/
+              git clone --depth=1 https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
+              cp -r /tmp/repo/odoo_k8s_saas /mnt/extra-addons/
+              echo "Addon copied OK"
           volumeMounts:
             - name: odoo-addons
               mountPath: /mnt/extra-addons

@@ -14,7 +14,7 @@ from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 from contextlib import asynccontextmanager
 
-from .routers import instances
+from routers import instances
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
