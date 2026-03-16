@@ -43,15 +43,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy to cluster via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ubuntu
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            # imagePullPolicy: Always in the manifest means k3s will pull the
-            # new :latest from GHCR automatically when the pod restarts.
-            sudo kubectl -n aeisoftware rollout restart deployment/portal
-            sudo kubectl -n aeisoftware rollout status deployment/portal --timeout=120s
+      # NOTE: Deployment is handled locally on the VM via:
+      #   docker build -t portal:latest portal/
+      #   docker save portal:latest | sudo k3s ctr images import -
+      #   kubectl -n aeisoftware rollout restart deployment/portal
+      # The VM is behind Cloudflare Tunnel and doesn't expose SSH publicly.

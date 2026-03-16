@@ -202,11 +202,21 @@ def _create_pg_user(pg_user: str, password: str, db_name: str) -> None:
 
 
 def _drop_pg_user(pg_user: str, db_name: str) -> None:
-    """Drop tenant Postgres database and role."""
+    """Drop tenant Postgres database and role.
+
+    Terminates active connections first to avoid
+    'database is being accessed by other users' errors.
+    """
     conn = _pg_conn()
     conn.autocommit = True
     try:
         with conn.cursor() as cur:
+            # Kick everyone off the database first
+            cur.execute(
+                "SELECT pg_terminate_backend(pid) "
+                "FROM pg_stat_activity WHERE datname = %s AND pid <> pg_backend_pid()",
+                (db_name,),
+            )
             cur.execute(f'DROP DATABASE IF EXISTS "{db_name}"')
             cur.execute(f'DROP ROLE IF EXISTS "{pg_user}"')
             logger.info("Dropped Postgres role/db for %s", pg_user)
