@@ -49,9 +49,9 @@ spec:
               value: postgres.aeisoftware.svc.cluster.local
             - name: POSTGRES_PORT
               value: "5432"
-            - name: POSTGRES_USER
-              value: odoo
-            - name: POSTGRES_PASSWORD
+            - name: POSTGRES_ADMIN_USER
+              value: postgres
+            - name: POSTGRES_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret

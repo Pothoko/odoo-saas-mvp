@@ -73,15 +73,15 @@ def secret_manifest(tenant_id: str, db_password: str, admin_password: str) -> di
     }
 
 
-def configmap_manifest(tenant_id: str) -> dict[str, Any]:
-    """Odoo config file per tenant."""
+def configmap_manifest(tenant_id: str, db_password: str, admin_password: str) -> dict[str, Any]:
+    """Odoo config file per tenant — passwords are embedded at provision time."""
     db_name = _dbname(tenant_id)
     conf = f"""[options]
 db_host = {POSTGRES_HOST}
 db_port = {POSTGRES_PORT}
-db_user = {POSTGRES_USER}
-db_password = %(DB_PASSWORD)s
-admin_passwd = %(ADMIN_PASSWD)s
+db_user = odoo-{tenant_id}
+db_password = {db_password}
+admin_passwd = {admin_password}
 dbfilter = ^{db_name}$
 list_db = False
 addons_path = /usr/lib/python3/dist-packages/odoo/addons
@@ -100,6 +100,7 @@ proxy_mode = True
         },
         "data": {"odoo.conf": conf},
     }
+
 
 
 def deployment_manifest(tenant_id: str) -> dict[str, Any]:
@@ -219,11 +220,12 @@ def all_manifests(tenant_id: str, db_password: str, admin_password: str, storage
         namespace_manifest(tenant_id),
         pvc_manifest(tenant_id, storage_gi),
         secret_manifest(tenant_id, db_password, admin_password),
-        configmap_manifest(tenant_id),
+        configmap_manifest(tenant_id, db_password, admin_password),
         deployment_manifest(tenant_id),
         service_manifest(tenant_id),
         ingress_manifest(tenant_id),
     ]
+
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
