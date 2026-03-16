@@ -50,7 +50,7 @@ spec:
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_ADMIN_USER
-              value: postgres
+              value: odoo
             - name: POSTGRES_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
