@@ -51,6 +51,44 @@ class SaasInstance(models.Model):
 
     # ── actions ───────────────────────────────────────────────────────────────
 
+    def action_check_availability(self):
+        """Check if the tenant_id is available (namespace + DB don't exist)."""
+        self.ensure_one()
+        if not self.tenant_id:
+            raise UserError(_("Please enter a Tenant ID first."))
+        try:
+            resp = requests.get(
+                f"{PORTAL_URL}/api/v1/instances/check/{self.tenant_id}",
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            raise UserError(_("Availability check failed: %s") % exc) from exc
+
+        if data.get("available"):
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Available ✓"),
+                    "message": _("Tenant ID '%s' is available.") % self.tenant_id,
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+        else:
+            reasons = []
+            if data.get("namespace_exists"):
+                reasons.append(_("K8s namespace already exists"))
+            if data.get("database_exists"):
+                reasons.append(_("Database already exists"))
+            raise UserError(
+                _("Tenant ID '%s' is NOT available: %s")
+                % (self.tenant_id, ", ".join(reasons) or _("already taken"))
+            )
+
     def action_provision(self):
         self.ensure_one()
         if self.state not in ("draft", "error"):

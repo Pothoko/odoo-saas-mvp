@@ -82,6 +82,7 @@ db_port = {POSTGRES_PORT}
 db_user = odoo-{tenant_id}
 db_password = {db_password}
 admin_passwd = {admin_password}
+db_name = {db_name}
 dbfilter = ^{db_name}$
 list_db = False
 addons_path = /usr/lib/python3/dist-packages/odoo/addons
@@ -90,7 +91,6 @@ workers = 2
 max_cron_threads = 1
 gevent_port = 8072
 proxy_mode = True
-init = base
 without_demo = all
 """
     return {
@@ -106,6 +106,19 @@ without_demo = all
 
 
 def deployment_manifest(tenant_id: str) -> dict[str, Any]:
+    pg_user = f"odoo-{tenant_id}"
+    # Shared volume mounts and env used by both init and main containers
+    _vol_mounts = [
+        {"name": "odoo-conf", "mountPath": "/etc/odoo"},
+        {"name": "odoo-data", "mountPath": "/var/lib/odoo"},
+    ]
+    _env = [
+        {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
+        {"name": "HOST",        "value": POSTGRES_HOST},
+        {"name": "PORT",        "value": str(POSTGRES_PORT)},
+        {"name": "USER",        "value": pg_user},
+        {"name": "PASSWORD",    "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
+    ]
     return {
         "apiVersion": "apps/v1",
         "kind": "Deployment",
@@ -121,6 +134,20 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
             "template": {
                 "metadata": {"labels": {"app": "odoo", "tenant": tenant_id}},
                 "spec": {
+                    # Init container: bootstrap the DB schema (workers>0 mode can't do this)
+                    "initContainers": [
+                        {
+                            "name": "odoo-init",
+                            "image": ODOO_IMAGE,
+                            "args": [
+                                "--config=/etc/odoo/odoo.conf",
+                                "--init=base",
+                                "--stop-after-init",
+                            ],
+                            "env": _env,
+                            "volumeMounts": _vol_mounts,
+                        }
+                    ],
                     "containers": [
                         {
                             "name": "odoo",
@@ -130,26 +157,17 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                                 {"containerPort": 8069},
                                 {"containerPort": 8072},
                             ],
-                            "env": [
-                                {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
-                                {"name": "HOST", "value": POSTGRES_HOST},
-                                {"name": "PORT", "value": str(POSTGRES_PORT)},
-                                {"name": "USER", "value": POSTGRES_USER},
-                                {"name": "PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
-                            ],
-                            "volumeMounts": [
-                                {"name": "odoo-conf", "mountPath": "/etc/odoo"},
-                                {"name": "odoo-data", "mountPath": "/var/lib/odoo"},
-                            ],
+                            "env": _env,
+                            "volumeMounts": _vol_mounts,
                             "readinessProbe": {
                                 "httpGet": {"path": "/web/health", "port": 8069},
-                                "initialDelaySeconds": 90,
+                                "initialDelaySeconds": 30,
                                 "periodSeconds": 15,
                                 "failureThreshold": 40,
                             },
                             "resources": {
                                 "requests": {"cpu": "100m", "memory": "512Mi"},
-                                "limits": {"cpu": "1", "memory": "2Gi"},
+                                "limits":   {"cpu": "1",    "memory": "2Gi"},
                             },
                         }
                     ],

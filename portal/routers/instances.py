@@ -49,6 +49,34 @@ class InstanceResponse(BaseModel):
 
 # ── endpoints ────────────────────────────────────────────────────────────────
 
+@router.get("/check/{tenant_id}")
+def check_availability(tenant_id: str):
+    """Check whether a tenant_id is available (namespace + DB don't exist)."""
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import namespace_exists
+    ns_taken = namespace_exists(namespace)
+
+    db_name = f"odoo_{tenant_id}"
+    db_taken = False
+    try:
+        conn = _pg_conn()
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            db_taken = cur.fetchone() is not None
+        conn.close()
+    except Exception:
+        pass  # If PG is unreachable, just check namespace
+
+    available = not ns_taken and not db_taken
+    return {
+        "tenant_id": tenant_id,
+        "available": available,
+        "namespace_exists": ns_taken,
+        "database_exists": db_taken,
+    }
+
+
 @router.post("", response_model=InstanceResponse, status_code=202)
 def create_instance(req: CreateInstanceRequest):
     """

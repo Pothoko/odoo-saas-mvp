@@ -27,6 +27,9 @@
     <field name="arch" type="xml">
       <form>
         <header>
+          <button name="action_check_availability" type="object" string="Check Availability"
+                  class="btn-secondary"
+                  invisible="state not in ('draft', 'error')"/>
           <button name="action_provision" type="object" string="Provision"
                   class="btn-primary"
                   invisible="state not in ('draft', 'error')"/>
