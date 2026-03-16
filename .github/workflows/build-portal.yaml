@@ -9,10 +9,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ${{ github.repository_owner }}/odoo-saas-mvp/portal
+  IMAGE_NAME: ${{ github.repository_owner }}/odoo-saas-mvp/portal
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -29,21 +32,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (with layer cache)
         uses: docker/build-push-action@v6
         with:
           context: portal
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Restart portal deployment on cluster
+      - name: Deploy to cluster via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VM_HOST }}
-          username: root
+          username: ubuntu
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            kubectl -n aeisoftware rollout restart deployment/portal
-            kubectl -n aeisoftware rollout status deployment/portal --timeout=120s
+            set -e
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            IMAGE="ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+            # Pull the new image (GHCR is public, no auth needed for read)
+            sudo k3s ctr images pull "$IMAGE"
+
+            # Point the deployment at the new versioned tag
+            sudo kubectl -n aeisoftware set image deployment/portal portal="$IMAGE"
+            sudo kubectl -n aeisoftware patch deployment portal \
+              -p '{"spec":{"template":{"spec":{"containers":[{"name":"portal","imagePullPolicy":"IfNotPresent"}]}}}}'
+
+            sudo kubectl -n aeisoftware rollout status deployment/portal --timeout=120s
