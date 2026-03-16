@@ -33,16 +33,16 @@ class SaasInstance(models.Model):
     namespace = fields.Char(string="K8s Namespace", readonly=True)
     state = fields.Selection(
         [
-            ("draft", _("Draft")),
-            ("provisioning", _("Provisioning")),
-            ("ready", _("Ready")),
-            ("error", _("Error")),
-            ("deleted", _("Deleted")),
+            ("draft", "Draft"),
+            ("provisioning", "Provisioning"),
+            ("ready", "Ready"),
+            ("error", "Error"),
+            ("deleted", "Deleted"),
         ],
         default="draft", required=True, tracking=True,
     )
     plan = fields.Selection(
-        [("starter", _("Starter")), ("pro", _("Pro")), ("enterprise", _("Enterprise"))],
+        [("starter", "Starter"), ("pro", "Pro"), ("enterprise", "Enterprise")],
         default="starter", required=True,
     )
     storage_gi = fields.Integer(string="Storage (GB)", default=10)
