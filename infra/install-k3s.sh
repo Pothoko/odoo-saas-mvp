@@ -1,29 +1,20 @@
 #!/usr/bin/env bash
 # infra/install-k3s.sh
-# Install K3s on an Ubuntu Hetzner VM for the Odoo SaaS MVP.
-# Run as root on the VM.
+# Install K3s (WITHOUT built-in Traefik — we install Traefik via install-traefik.sh).
+# Run as root on the VM:  bash odoo-saas-mvp/infra/install-k3s.sh
 set -euo pipefail
 
 echo "==> Installing K3s …"
 curl -sfL https://get.k3s.io | sh -s - \
   --write-kubeconfig-mode 644 \
-  --disable traefik \   # we use Traefik via Helm for CRDs
-  --cluster-init
+  --disable traefik
 
-# Wait for K3s to be ready
 echo "==> Waiting for K3s node to be Ready …"
-until kubectl get nodes | grep -q " Ready"; do sleep 5; done
+until kubectl get nodes 2>/dev/null | grep -q " Ready"; do
+  sleep 5
+done
+echo "    Node ready."
 
-echo "==> Installing Traefik (with CRDs) via Helm …"
-helm repo add traefik https://helm.traefik.io/traefik
-helm repo update
-helm upgrade --install traefik traefik/traefik \
-  --namespace kube-system \
-  --set ports.web.exposedPort=80 \
-  --set ports.websecure.exposedPort=443 \
-  --set providers.kubernetesCRD.enabled=true \
-  --set providers.kubernetesIngress.enabled=true \
-  --wait
-
-echo "==> K3s + Traefik installation complete."
-echo "    Kubeconfig: /etc/rancher/k3s/k3s.yaml"
+echo "==> K3s installation complete."
+echo "    Run next:  bash infra/install-traefik.sh"
+echo "    Then:      bash infra/apply-manifests.sh"

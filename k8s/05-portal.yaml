@@ -1,31 +1,26 @@
 ---
-# Traefik middleware: set X-Forwarded-Proto and other Odoo-required headers
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: odoo-headers
-  namespace: kube-system
-spec:
-  headers:
-    customRequestHeaders:
-      X-Forwarded-Proto: "https"
-
----
-# Traefik IngressRoute for the portal itself
-# portal.aeisoftware.com → portal service port 8000
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
+# Standard Ingress for the portal — works with built-in K3s Traefik or any
+# nginx-class ingress controller. No CRD dependency.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
   name: portal-ingress
   namespace: aeisoftware
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
-  entryPoints: [web]
-  routes:
-    - match: Host(`portal.aeisoftware.com`)
-      kind: Rule
-      services:
-        - name: portal
-          port: 8000
+  ingressClassName: traefik
+  rules:
+    - host: portal.aeisoftware.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portal
+                port:
+                  number: 8000
 
 ---
 apiVersion: apps/v1
