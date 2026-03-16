@@ -126,3 +126,14 @@ def get_deployment_status(namespace: str, name: str = "odoo") -> dict:
         if e.status == 404:
             return {"phase": "NotFound", "ready": False}
         raise
+
+
+def namespace_exists(namespace: str) -> bool:
+    """Return True if a K8s namespace already exists."""
+    try:
+        _core().read_namespace(name=namespace)
+        return True
+    except client.exceptions.ApiException as e:
+        if e.status == 404:
+            return False
+        raise

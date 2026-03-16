@@ -57,6 +57,15 @@ def create_instance(req: CreateInstanceRequest):
     2. Applies K8s manifests (namespace, secret, configmap, deployment, …).
     Returns immediately; poll GET /instances/{id} for readiness.
     """
+    # Guard: reject duplicate tenant IDs immediately
+    namespace = f"odoo-{req.tenant_id}"
+    from k8s_utils.client import namespace_exists
+    if namespace_exists(namespace):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Tenant '{req.tenant_id}' already exists. Choose a different name.",
+        )
+
     db_password = _gen_password()
     admin_password = _gen_password()
     pg_user = f"odoo-{req.tenant_id}"
@@ -148,7 +157,11 @@ def _create_pg_user(pg_user: str, password: str, db_name: str) -> None:
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (pg_user,))
-            if not cur.fetchone():
+            if cur.fetchone():
+                # Role exists — always sync password so K8s secret stays consistent
+                cur.execute(f'ALTER ROLE "{pg_user}" PASSWORD %s', (password,))
+                logger.info("Updated password for existing Postgres role %s", pg_user)
+            else:
                 cur.execute(f'CREATE ROLE "{pg_user}" LOGIN PASSWORD %s', (password,))
                 logger.info("Created Postgres role %s", pg_user)
 
