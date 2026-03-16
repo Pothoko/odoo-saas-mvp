@@ -47,6 +47,7 @@
               <field name="name"/>
               <field name="tenant_id"/>
               <field name="partner_id"/>
+              <field name="sale_order_id" readonly="1"/>
             </group>
             <group string="Configuration">
               <field name="plan"/>

@@ -1,4 +1,2 @@
-from odoo import models
-from .saas_instance import SaasInstance
-
-__all__ = ["SaasInstance"]
+from . import saas_instance
+from . import saas_sale

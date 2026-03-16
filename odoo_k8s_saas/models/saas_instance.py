@@ -48,6 +48,10 @@ class SaasInstance(models.Model):
     storage_gi = fields.Integer(string="Storage (GB)", default=10)
     error_msg = fields.Text(string="Error", readonly=True)
     partner_id = fields.Many2one("res.partner", string="Customer")
+    sale_order_id = fields.Many2one(
+        "sale.order", string="Sale Order", ondelete="set null",
+        help="Sale order that triggered this instance's creation.",
+    )
 
     # ── actions ───────────────────────────────────────────────────────────────
 
