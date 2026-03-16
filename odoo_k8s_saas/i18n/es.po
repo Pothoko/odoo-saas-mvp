@@ -1,0 +1,114 @@
+# Translation of Odoo Server.
+# This file contains the Spanish translation of the Odoo module "Odoo K8s SaaS".
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo K8s SaaS 18.0.1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-16 00:00+0000\n"
+"PO-Revision-Date: 2026-03-16 00:00+0000\n"
+"Last-Translator: AEI Software <info@aeisoftware.com>\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# --- Model description ---
+msgid "SaaS Tenant Instance"
+msgstr "Instancia de Inquilino SaaS"
+
+# --- Field labels ---
+msgid "Instance Name"
+msgstr "Nombre de Instancia"
+
+msgid "Tenant ID"
+msgstr "ID de Inquilino"
+
+msgid "URL"
+msgstr "URL"
+
+msgid "K8s Namespace"
+msgstr "Espacio de Nombres K8s"
+
+msgid "Customer"
+msgstr "Cliente"
+
+msgid "Plan"
+msgstr "Plan"
+
+msgid "Storage (GB)"
+msgstr "Almacenamiento (GB)"
+
+msgid "Error"
+msgstr "Error"
+
+# --- State values ---
+msgid "Draft"
+msgstr "Borrador"
+
+msgid "Provisioning"
+msgstr "Aprovisionando"
+
+msgid "Ready"
+msgstr "Listo"
+
+msgid "Deleted"
+msgstr "Eliminado"
+
+# --- Plan values ---
+msgid "Starter"
+msgstr "Inicial"
+
+msgid "Pro"
+msgstr "Pro"
+
+msgid "Enterprise"
+msgstr "Empresarial"
+
+# --- Form view group labels ---
+msgid "Identity"
+msgstr "Identidad"
+
+msgid "Configuration"
+msgstr "Configuración"
+
+# --- Button labels ---
+msgid "Provision"
+msgstr "Aprovisionar"
+
+msgid "Refresh Status"
+msgstr "Actualizar Estado"
+
+msgid "Delete Instance"
+msgstr "Eliminar Instancia"
+
+# --- Menu items ---
+msgid "SaaS"
+msgstr "SaaS"
+
+msgid "Instances"
+msgstr "Instancias"
+
+msgid "SaaS Instances"
+msgstr "Instancias SaaS"
+
+# --- Cron ---
+msgid "SaaS: Refresh Instance Status"
+msgstr "SaaS: Actualizar Estado de Instancias"
+
+# --- Error messages ---
+msgid "Can only provision from Draft or Error state."
+msgstr "Solo se puede aprovisionar desde el estado Borrador o Error."
+
+msgid "Provisioning failed: %s"
+msgstr "El aprovisionamiento falló: %s"
+
+msgid "Delete failed: %s"
+msgstr "La eliminación falló: %s"
+
+# --- Field tooltips ---
+msgid "Human-readable name"
+msgstr "Nombre legible para el usuario"
+
+msgid "Slug used as subdomain: e.g. 'demo' → demo.aeisoftware.com"
+msgstr "Identificador usado como subdominio: ej. 'demo' → demo.aeisoftware.com"

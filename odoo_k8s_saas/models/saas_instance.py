@@ -9,7 +9,7 @@ import logging
 import os
 import requests
 
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ class SaasInstance(models.Model):
     _name = "saas.instance"
     _description = "SaaS Tenant Instance"
     _order = "create_date desc"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
 
     name = fields.Char(string="Instance Name", required=True, help="Human-readable name")
     tenant_id = fields.Char(
@@ -32,16 +33,16 @@ class SaasInstance(models.Model):
     namespace = fields.Char(string="K8s Namespace", readonly=True)
     state = fields.Selection(
         [
-            ("draft", "Draft"),
-            ("provisioning", "Provisioning"),
-            ("ready", "Ready"),
-            ("error", "Error"),
-            ("deleted", "Deleted"),
+            ("draft", _("Draft")),
+            ("provisioning", _("Provisioning")),
+            ("ready", _("Ready")),
+            ("error", _("Error")),
+            ("deleted", _("Deleted")),
         ],
         default="draft", required=True, tracking=True,
     )
     plan = fields.Selection(
-        [("starter", "Starter"), ("pro", "Pro"), ("enterprise", "Enterprise")],
+        [("starter", _("Starter")), ("pro", _("Pro")), ("enterprise", _("Enterprise"))],
         default="starter", required=True,
     )
     storage_gi = fields.Integer(string="Storage (GB)", default=10)

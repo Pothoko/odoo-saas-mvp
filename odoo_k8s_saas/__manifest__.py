@@ -5,13 +5,13 @@
     'category': 'Technical',
     'author': 'AEI Software',
     'license': 'LGPL-3',
-    'depends': ['base', 'web'],
+    'depends': ['base', 'web', 'mail'],
     'data': [
         'security/ir.model.access.csv',
         'views/saas_instance_views.xml',
         'data/ir_cron.xml',
     ],
     'installable': True,
-    'application': False,
+    'application': True,
     'auto_install': False,
 }
