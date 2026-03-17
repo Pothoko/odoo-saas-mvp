@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Job 1: Lint Odoo addons (runs on every push/PR) ───────────────────────
+  lint-addons:
+    name: Lint Odoo Addons
+    runs-on: ubuntu-latest
+    # Only run when addon files changed (or workflow itself changed)
+    if: |
+      github.event_name == 'pull_request' ||
+      contains(github.event.commits[0].modified, 'odoo_k8s_saas') ||
+      contains(github.event.commits[0].added, 'odoo_k8s_saas') ||
+      true  # always run for simplicity — flake8 is fast
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint odoo_k8s_saas
+        run: |
+          flake8 odoo_k8s_saas/ \
+            --max-line-length=120 \
+            --exclude=__pycache__ \
+            --extend-ignore=E501,W503
+
+      - name: Lint odoo_k8s_saas_subscription
+        run: |
+          flake8 odoo_k8s_saas_subscription/ \
+            --max-line-length=120 \
+            --exclude=__pycache__ \
+            --extend-ignore=E501,W503
+
+  # ─── Job 2: Build & push Portal image (only on push to main w/ portal changes) ─
+  build-portal:
+    name: Build & Push Portal
+    runs-on: ubuntu-latest
+    # Only runs on push to main (not on PRs) and only when portal files changed
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (with layer cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: portal
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/odoo-saas-mvp/portal:latest
+            ghcr.io/${{ github.repository_owner }}/odoo-saas-mvp/portal:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Deployment is manual — SSH into the server and run:
+      #   KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n aeisoftware rollout restart deployment/portal
+      # See Operational-Runbook for full steps.
