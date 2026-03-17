@@ -5,6 +5,13 @@ Hooks into the invoice payment flow:
   When a customer invoice is fully paid and its source sale order
   contains products in the "Odoo-SaaS" category, automatically
   create and provision a saas.instance for each such line.
+
+IMPORTANT (Odoo 18):
+  ``payment_state`` is a **computed stored field**.  When a payment is
+  reconciled the ORM calls ``_compute_payment_state()`` and persists the
+  new value through an internal ``_write()``, which *bypasses* the public
+  ``write()`` method.  Therefore, the primary trigger must override
+  ``_compute_payment_state()``, NOT ``write()``.
 """
 import logging
 import re
@@ -15,23 +22,55 @@ logger = logging.getLogger(__name__)
 
 SAAS_CATEGORY_XMLID = "odoo_k8s_saas.product_category_odoo_saas"
 
+# States that mean "invoice is paid"
+_PAID_STATES = frozenset(("paid", "in_payment"))
+
 
 class AccountMove(models.Model):
     """Extend account.move to trigger SaaS provisioning on full payment."""
 
     _inherit = "account.move"
 
+    # ── primary trigger: computed-field override ───────────────────────────
+    def _compute_payment_state(self):
+        """Override the ORM compute to detect paid→provisioning transitions."""
+        # Snapshot current states BEFORE recomputation
+        old_states = {m.id: m.payment_state for m in self if m.id}
+
+        super()._compute_payment_state()
+
+        # After recomputation, check for newly-paid customer invoices
+        for move in self:
+            new_state = move.payment_state
+            old_state = old_states.get(move.id)
+            if (
+                new_state in _PAID_STATES
+                and old_state not in _PAID_STATES
+                and move.move_type == "out_invoice"
+            ):
+                logger.info(
+                    "SaaS trigger (compute): payment_state %s → %s for %s",
+                    old_state, new_state, move.name,
+                )
+                try:
+                    move._saas_check_and_provision()
+                except Exception:
+                    logger.exception(
+                        "SaaS auto-provision failed for invoice %s", move.name
+                    )
+
+    # ── secondary trigger: manual / API writes ────────────────────────────
     def write(self, vals):
-        """Detect when payment_state changes to 'paid' and provision SaaS."""
+        """Fallback: detect payment_state set explicitly via write()."""
         res = super().write(vals)
-        if vals.get("payment_state") in ("paid", "in_payment"):
+        if vals.get("payment_state") in _PAID_STATES:
             logger.info(
-                "SaaS trigger: payment_state → %s for %s invoice(s)",
+                "SaaS trigger (write): payment_state → %s for %s invoice(s)",
                 vals["payment_state"], len(self),
             )
             for move in self.filtered(
                 lambda m: m.move_type == "out_invoice"
-                and m.payment_state in ("paid", "in_payment")
+                and m.payment_state in _PAID_STATES
             ):
                 try:
                     move._saas_check_and_provision()
