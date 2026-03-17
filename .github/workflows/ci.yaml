@@ -11,12 +11,7 @@ jobs:
   lint-addons:
     name: Lint Odoo Addons
     runs-on: ubuntu-latest
-    # Only run when addon files changed (or workflow itself changed)
-    if: |
-      github.event_name == 'pull_request' ||
-      contains(github.event.commits[0].modified, 'odoo_k8s_saas') ||
-      contains(github.event.commits[0].added, 'odoo_k8s_saas') ||
-      true  # always run for simplicity — flake8 is fast
+    # Lint runs on every push/PR — flake8 is fast enough to always check
     steps:
       - name: Checkout
         uses: actions/checkout@v4
