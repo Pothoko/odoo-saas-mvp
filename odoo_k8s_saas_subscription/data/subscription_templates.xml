@@ -6,19 +6,19 @@
         <record id="subscription_template_saas_starter" model="sale.subscription.template">
             <field name="name">SaaS Starter (Monthly)</field>
             <field name="recurring_interval">1</field>
-            <field name="recurring_rule_type">monthly</field>
+            <field name="recurring_rule_type">months</field>
         </record>
 
         <record id="subscription_template_saas_pro" model="sale.subscription.template">
             <field name="name">SaaS Pro (Monthly)</field>
             <field name="recurring_interval">1</field>
-            <field name="recurring_rule_type">monthly</field>
+            <field name="recurring_rule_type">months</field>
         </record>
 
         <record id="subscription_template_saas_enterprise" model="sale.subscription.template">
             <field name="name">SaaS Enterprise (Monthly)</field>
             <field name="recurring_interval">1</field>
-            <field name="recurring_rule_type">monthly</field>
+            <field name="recurring_rule_type">months</field>
         </record>
 
     </data>
