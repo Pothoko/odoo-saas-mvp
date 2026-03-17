@@ -10,6 +10,7 @@
         'security/ir.model.access.csv',
         'data/subscription_templates.xml',
         'views/saas_instance_views.xml',
+        'views/sale_subscription_views.xml',
         'views/subscription_portal_templates.xml',
     ],
     'installable': True,

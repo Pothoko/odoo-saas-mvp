@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <!-- ── Extend sale.subscription form ────────────────────────── -->
+        <record id="view_sale_subscription_form_saas" model="ir.ui.view">
+            <field name="name">sale.subscription.form.saas</field>
+            <field name="model">sale.subscription</field>
+            <field name="inherit_id" ref="subscription_oca.sale_subscription_form"/>
+            <field name="arch" type="xml">
+
+                <!-- SaaS Instances stat button in button_box -->
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <button
+                        name="action_view_saas_instances"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-server"
+                        invisible="saas_instance_count == 0"
+                    >
+                        <field
+                            name="saas_instance_count"
+                            widget="statinfo"
+                            string="Instances"
+                        />
+                    </button>
+                </xpath>
+
+                <!-- Re-provision button in header (only when In Progress + no active instance) -->
+                <xpath expr="//header/field[@name='stage_id']" position="before">
+                    <button
+                        string="Re-provision Instance"
+                        name="action_reprovision_instance"
+                        type="object"
+                        class="btn-warning"
+                        icon="fa-refresh"
+                        invisible="has_active_instance or not in_progress"
+                        confirm="This will create a new SaaS instance and provision it. Continue?"
+                    />
+                </xpath>
+
+            </field>
+        </record>
+
+    </data>
+</odoo>
