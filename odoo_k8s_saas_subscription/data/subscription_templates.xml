@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- ── SaaS Subscription Templates ────────────────────────────── -->
+        <record id="subscription_template_saas_starter" model="sale.subscription.template">
+            <field name="name">SaaS Starter (Monthly)</field>
+            <field name="recurring_interval">1</field>
+            <field name="recurring_rule_type">monthly</field>
+        </record>
+
+        <record id="subscription_template_saas_pro" model="sale.subscription.template">
+            <field name="name">SaaS Pro (Monthly)</field>
+            <field name="recurring_interval">1</field>
+            <field name="recurring_rule_type">monthly</field>
+        </record>
+
+        <record id="subscription_template_saas_enterprise" model="sale.subscription.template">
+            <field name="name">SaaS Enterprise (Monthly)</field>
+            <field name="recurring_interval">1</field>
+            <field name="recurring_rule_type">monthly</field>
+        </record>
+
+    </data>
+</odoo>

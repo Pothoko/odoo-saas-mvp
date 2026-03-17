@@ -80,16 +80,22 @@ spec:
         app: odoo-admin
     spec:
       initContainers:
-        # 1. Clone the SaaS addon from GitHub
+        # 1. Clone the SaaS addons from GitHub
         - name: copy-addon
           image: alpine/git
           command:
             - sh
             - -c
             - |
-              git clone --depth=1 -b feature/sales-integration https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
+              # Clone main SaaS repo (base addon + bridge module)
+              git clone --depth=1 -b feature/subscription-integration https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
               cp -r /tmp/repo/odoo_k8s_saas /mnt/extra-addons/
-              echo "Addon copied OK"
+              cp -r /tmp/repo/odoo_k8s_saas_subscription /mnt/extra-addons/
+              # Clone subscription_oca from OCA fork
+              git clone --depth=1 -b main https://github.com/jpvargassoruco/odoo18-oca-contract.git /tmp/oca-contract
+              cp -r /tmp/oca-contract/subscription_oca /mnt/extra-addons/
+              echo "All addons copied OK"
+              ls -la /mnt/extra-addons/
           volumeMounts:
             - name: odoo-addons
               mountPath: /mnt/extra-addons

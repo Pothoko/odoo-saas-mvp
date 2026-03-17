@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_saas_instance_subscription,saas.instance.subscription,odoo_k8s_saas.model_saas_instance,base.group_user,1,1,1,0

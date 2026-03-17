@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <!-- ── Extend saas.instance form view ────────────────────────── -->
+        <record id="view_saas_instance_form_subscription" model="ir.ui.view">
+            <field name="name">saas.instance.form.subscription</field>
+            <field name="model">saas.instance</field>
+            <field name="inherit_id" ref="odoo_k8s_saas.view_saas_instance_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='sale_order_id']" position="after">
+                    <field name="subscription_id"/>
+                    <field name="subscription_stage"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ── Extend saas.instance list view ────────────────────────── -->
+        <record id="view_saas_instance_tree_subscription" model="ir.ui.view">
+            <field name="name">saas.instance.tree.subscription</field>
+            <field name="model">saas.instance</field>
+            <field name="inherit_id" ref="odoo_k8s_saas.view_saas_instance_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='state']" position="before">
+                    <field name="subscription_stage" optional="hide"/>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>
