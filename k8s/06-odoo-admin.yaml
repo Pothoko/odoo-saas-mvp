@@ -1,6 +1,6 @@
 ---
 # Single shared Odoo 18 instance for admin use (admin.aeisoftware.com)
-# Includes the odoo_k8s_saas addon, cloned from GitHub on each pod start.
+# Includes odoo_k8s_saas and odoo_k8s_saas_subscription addons, cloned from main on each pod start.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -88,7 +88,7 @@ spec:
             - -c
             - |
               # Clone main SaaS repo (base addon + bridge module)
-              git clone --depth=1 -b feature/subscription-integration https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
+              git clone --depth=1 -b main https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
               cp -r /tmp/repo/odoo_k8s_saas /mnt/extra-addons/
               cp -r /tmp/repo/odoo_k8s_saas_subscription /mnt/extra-addons/
               # Clone subscription_oca from OCA fork
