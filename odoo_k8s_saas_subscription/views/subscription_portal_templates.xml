@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- ═══════════════════════════════════════════════════════════
+         Breadcrumbs
+         ═══════════════════════════════════════════════════════════ -->
+    <template
+        id="portal_my_home_menu_subscription"
+        name="Portal layout : Subscription menu entries"
+        inherit_id="portal.portal_breadcrumbs"
+        priority="35"
+    >
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li
+                t-if="page_name == 'Subscriptions'"
+                t-attf-class="breadcrumb-item #{'active ' if not subscription else ''}"
+            >
+                <a
+                    t-if="subscription"
+                    t-attf-href="/my/subscriptions?{{ keep_query() }}"
+                >Subscriptions</a>
+                <t t-else="">Subscriptions</t>
+            </li>
+            <li t-if="subscription" class="breadcrumb-item active">
+                <t t-esc="subscription.name" />
+            </li>
+        </xpath>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         /my Homepage entry
+         ═══════════════════════════════════════════════════════════ -->
+    <template
+        id="portal_my_home_subscription"
+        name="Show Subscriptions"
+        inherit_id="portal.portal_my_home"
+        customize_show="True"
+        priority="30"
+    >
+        <div id="portal_common_category" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="icon" t-value="'/odoo_k8s_saas_subscription/static/src/img/subscription_icon.svg'" />
+                <t t-set="title">Subscriptions</t>
+                <t t-set="url" t-value="'/my/subscriptions'" />
+                <t t-set="placeholder_count" t-value="'subscription_count'" />
+            </t>
+        </div>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         /my/subscriptions — List view
+         ═══════════════════════════════════════════════════════════ -->
+    <template id="portal_my_subscriptions" name="My Subscriptions">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True" />
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Subscriptions</t>
+            </t>
+            <t t-if="subscriptions" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Subscription</th>
+                        <th class="d-none d-md-table-cell">Stage</th>
+                        <th class="d-none d-md-table-cell">Next Invoice</th>
+                        <th class="text-end">Recurring Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="subscriptions" t-as="sub">
+                        <tr>
+                            <td>
+                                <a
+                                    t-att-href="sub.get_portal_url()"
+                                    t-att-title="sub.name"
+                                >
+                                    <t t-esc="sub.name" />
+                                </a>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                <span
+                                    t-if="sub.stage_id"
+                                    class="badge rounded-pill text-bg-info"
+                                    t-esc="sub.stage_id.name"
+                                />
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                <span t-field="sub.recurring_next_date" />
+                            </td>
+                            <td class="text-end">
+                                <span
+                                    t-field="sub.recurring_total"
+                                    t-options='{"widget": "monetary", "display_currency": sub.currency_id}'
+                                />
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </t>
+            <p t-if="not subscriptions" class="text-muted">
+                There are currently no subscriptions for your account.
+            </p>
+        </t>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         /my/subscriptions/<id> — Detail view
+         ═══════════════════════════════════════════════════════════ -->
+    <template id="portal_subscription_page" name="My Subscription">
+        <t t-call="portal.portal_layout">
+            <!-- Back-to-edit for internal users -->
+            <t groups="subscription_oca.group_subscription_oca_manager">
+                <t t-call="portal.portal_back_in_edit_mode">
+                    <t
+                        t-set="backend_url"
+                        t-value="'/web#return_label=Website&amp;model=sale.subscription&amp;id=%s&amp;view_type=form' % (subscription.id)"
+                    />
+                </t>
+            </t>
+
+            <!-- Header -->
+            <h5 class="mb-0">
+                <span>
+                    Subscription —
+                    <span t-field="subscription.name" />
+                </span>
+                <span
+                    t-if="subscription.stage_id"
+                    class="badge rounded-pill text-bg-info ms-2"
+                    t-esc="subscription.stage_id.name"
+                />
+            </h5>
+
+            <div id="general_information">
+                <!-- Customer / Responsible -->
+                <div class="row mt-4">
+                    <div
+                        t-if="subscription.partner_id"
+                        class="col-12 col-md-6 mb-4 mb-md-0"
+                    >
+                        <h6><strong>Customer:</strong></h6>
+                        <div class="row">
+                            <div class="col flex-grow-0 pe-3">
+                                <img
+                                    t-if="subscription.partner_id.image_128"
+                                    class="rounded-circle mt-1 o_portal_contact_img"
+                                    t-att-src="image_data_uri(subscription.partner_id.image_128)"
+                                    alt="Contact"
+                                />
+                                <img
+                                    t-else=""
+                                    class="rounded-circle mt-1 o_portal_contact_img"
+                                    src="/web/static/src/img/user_menu_avatar.png"
+                                    alt="Contact"
+                                />
+                            </div>
+                            <div class="col ps-sm-0">
+                                <address
+                                    t-field="subscription.partner_id"
+                                    t-options='{"widget": "contact", "fields": ["name", "email", "phone"]}'
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div t-if="subscription.user_id" class="col-12 col-md-6">
+                        <h6><strong>Commercial Agent:</strong></h6>
+                        <div class="row">
+                            <div class="col flex-grow-0 pe-3">
+                                <img
+                                    t-if="subscription.user_id.image_128"
+                                    class="rounded-circle mt-1 o_portal_contact_img"
+                                    t-att-src="image_data_uri(subscription.user_id.image_128)"
+                                    alt="Contact"
+                                />
+                                <img
+                                    t-else=""
+                                    class="rounded-circle mt-1 o_portal_contact_img"
+                                    src="/web/static/src/img/user_menu_avatar.png"
+                                    alt="Contact"
+                                />
+                            </div>
+                            <div class="col ps-sm-0">
+                                <address
+                                    t-field="subscription.user_id"
+                                    t-options='{"widget": "contact", "fields": ["name", "email", "phone"]}'
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subscription details -->
+                <div class="row mt-4" id="subscription_details">
+                    <div class="col-12 col-md-6 mb-4 mb-md-0">
+                        <div t-if="subscription.code" class="row mb-2 mb-sm-1">
+                            <div class="col-12 col-sm-4"><strong>Reference</strong></div>
+                            <div class="col-12 col-sm-8">
+                                <span t-field="subscription.code" />
+                            </div>
+                        </div>
+                        <div t-if="subscription.template_id" class="row mb-2 mb-sm-1">
+                            <div class="col-12 col-sm-4"><strong>Plan</strong></div>
+                            <div class="col-12 col-sm-8">
+                                <span t-field="subscription.template_id" />
+                            </div>
+                        </div>
+                        <div t-if="subscription.date_start" class="row mb-2 mb-sm-1">
+                            <div class="col-12 col-sm-4"><strong>Start Date</strong></div>
+                            <div class="col-12 col-sm-8">
+                                <span
+                                    t-field="subscription.date_start"
+                                    t-options='{"widget": "date"}'
+                                />
+                            </div>
+                        </div>
+                        <div t-if="subscription.recurring_next_date" class="row mb-2 mb-sm-1">
+                            <div class="col-12 col-sm-4"><strong>Next Invoice</strong></div>
+                            <div class="col-12 col-sm-8">
+                                <span
+                                    t-field="subscription.recurring_next_date"
+                                    t-options='{"widget": "date"}'
+                                />
+                            </div>
+                        </div>
+                        <div t-if="subscription.date" class="row mb-2 mb-sm-1">
+                            <div class="col-12 col-sm-4"><strong>End Date</strong></div>
+                            <div class="col-12 col-sm-8">
+                                <span
+                                    t-field="subscription.date"
+                                    t-options='{"widget": "date"}'
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Line items table -->
+                <div id="item_details">
+                    <table class="table table-sm mt-4" id="subscription_lines_table">
+                        <thead class="bg-100">
+                            <tr>
+                                <th name="th_name" class="text-start">Description</th>
+                                <th name="th_quantity" class="text-end">Quantity</th>
+                                <th name="th_price_unit" class="text-end">Unit Price</th>
+                                <th name="th_discount" class="text-end">Discount (%)</th>
+                                <th name="th_price_subtotal" class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t
+                                t-foreach="subscription.sale_subscription_line_ids"
+                                t-as="line"
+                            >
+                                <tr>
+                                    <td name="td_name">
+                                        <span t-field="line.name" />
+                                    </td>
+                                    <td name="td_quantity" class="text-end">
+                                        <span t-field="line.product_uom_qty" />
+                                    </td>
+                                    <td name="td_price_unit" class="text-end">
+                                        <span
+                                            t-field="line.price_unit"
+                                            t-options='{"widget": "monetary", "display_currency": subscription.currency_id}'
+                                        />
+                                    </td>
+                                    <td name="td_discount" class="text-end">
+                                        <span t-field="line.discount" />
+                                    </td>
+                                    <td name="td_price_subtotal" class="text-end">
+                                        <span
+                                            t-field="line.price_subtotal"
+                                            t-options='{"widget": "monetary", "display_currency": subscription.currency_id}'
+                                        />
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals -->
+                <div class="row justify-content-end mt-3">
+                    <div class="col-12 col-md-4">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Recurring Total</strong></td>
+                                <td class="text-end">
+                                    <span
+                                        t-field="subscription.recurring_total"
+                                        t-options='{"widget": "monetary", "display_currency": subscription.currency_id}'
+                                    />
+                                </td>
+                            </tr>
+                            <tr t-if="subscription.amount_tax">
+                                <td>Taxes</td>
+                                <td class="text-end">
+                                    <span
+                                        t-field="subscription.amount_tax"
+                                        t-options='{"widget": "monetary", "display_currency": subscription.currency_id}'
+                                    />
+                                </td>
+                            </tr>
+                            <tr class="border-top">
+                                <td><strong>Total</strong></td>
+                                <td class="text-end">
+                                    <strong>
+                                        <span
+                                            t-field="subscription.amount_total"
+                                            t-options='{"widget": "monetary", "display_currency": subscription.currency_id}'
+                                        />
+                                    </strong>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chatter / Communication -->
+            <div id="subscription_communication" class="mt-4">
+                <h2>Communication</h2>
+                <t t-call="portal.message_thread">
+                    <t t-set="object" t-value="subscription" />
+                    <t t-set="token" t-value="subscription.access_token" />
+                    <t t-set="pid" t-value="pid" />
+                    <t t-set="hash" t-value="hash" />
+                </t>
+            </div>
+        </t>
+    </template>
+</odoo>

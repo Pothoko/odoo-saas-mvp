@@ -5,11 +5,12 @@
     'category': 'Technical',
     'author': 'AEI Software',
     'license': 'LGPL-3',
-    'depends': ['odoo_k8s_saas', 'subscription_oca'],
+    'depends': ['odoo_k8s_saas', 'subscription_oca', 'portal'],
     'data': [
         'security/ir.model.access.csv',
         'data/subscription_templates.xml',
         'views/saas_instance_views.xml',
+        'views/subscription_portal_templates.xml',
     ],
     'installable': True,
     'auto_install': True,

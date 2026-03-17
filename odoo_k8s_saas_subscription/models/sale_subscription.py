@@ -1,7 +1,8 @@
 """
 models/sale_subscription.py
 
-Subscription lifecycle hooks for SaaS provisioning/suspension.
+Subscription lifecycle hooks for SaaS provisioning/suspension
+and portal.mixin for customer-facing /my/subscriptions portal.
 
 Stage transitions:
   → In Progress : provision the linked saas.instance (if not already)
@@ -19,8 +20,16 @@ _STAGE_CLOSED = "subscription_oca.stage_closed"
 
 
 class SaleSubscription(models.Model):
-    _inherit = "sale.subscription"
+    _inherit = ["sale.subscription", "portal.mixin"]
+    _name = "sale.subscription"
 
+    # ── Portal mixin ────────────────────────────────────────────
+    def _compute_access_url(self):
+        super()._compute_access_url()
+        for rec in self:
+            rec.access_url = f"/my/subscriptions/{rec.id}"
+
+    # ── Stage-change hooks ──────────────────────────────────────
     def write(self, vals):
         """Detect stage_id changes and trigger SaaS actions."""
         old_stages = {rec.id: rec.stage_id.id for rec in self}
@@ -81,3 +90,4 @@ class SaleSubscription(models.Model):
                         )
 
         return res
+
