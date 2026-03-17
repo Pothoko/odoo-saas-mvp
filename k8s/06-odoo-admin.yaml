@@ -32,7 +32,7 @@ metadata:
   namespace: odoo-admin
 type: Opaque
 data:
-  DB_PASSWORD: RGV2UGFzczIwMjYh
+  DB_PASSWORD: QWVpc29mdHdhcmUyMDI2Kw==
   ADMIN_PASSWD: QWVpc29mdHdhcmUyMDI2Kw==
 
 ---
