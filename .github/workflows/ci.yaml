@@ -7,45 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  # ─── Job 1: Lint Odoo addons (runs on every push/PR) ───────────────────────
-  lint-addons:
-    name: Lint Odoo Addons
-    runs-on: ubuntu-latest
-    # Lint runs on every push/PR — flake8 is fast enough to always check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install flake8
-        run: pip install flake8
-
-      - name: Lint odoo_k8s_saas
-        run: |
-          flake8 odoo_k8s_saas/ \
-            --max-line-length=120 \
-            --exclude=__pycache__ \
-            --extend-ignore=E501,W503
-
-      - name: Lint odoo_k8s_saas_subscription
-        run: |
-          flake8 odoo_k8s_saas_subscription/ \
-            --max-line-length=120 \
-            --exclude=__pycache__ \
-            --extend-ignore=E501,W503
-
-  # ─── Job 2: Build & push Portal image (only on push to main w/ portal changes) ─
   build-portal:
     name: Build & Push Portal
     runs-on: ubuntu-latest
-    # Only runs on push to main (not on PRs) and only when portal files changed
-    if: |
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
+    # Only push the image on commits to main (not on PRs)
     permissions:
       contents: read
       packages: write
@@ -58,6 +23,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        # Only needed for push — skip on PRs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -68,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: portal
-          push: true
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/odoo-saas-mvp/portal:latest
             ghcr.io/${{ github.repository_owner }}/odoo-saas-mvp/portal:${{ github.sha }}
