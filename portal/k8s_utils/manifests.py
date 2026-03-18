@@ -207,7 +207,6 @@ def ingress_manifest(tenant_id: str) -> dict[str, Any]:
             "namespace": _ns(tenant_id),
             "annotations": {
                 "traefik.ingress.kubernetes.io/router.entrypoints": "web",
-                "traefik.ingress.kubernetes.io/router.middlewares": ODOO_HEADERS_MIDDLEWARE,
             },
         },
         "spec": {
