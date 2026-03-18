@@ -1,16 +1,21 @@
 __pycache__/
 *.pyc
 *.pyo
+# Secrets — NEVER commit real passwords
+.secrets.env
 .env
 .env.*
+!.env.example
+!*.env.example
+
 *.egg-info/
 dist/
 build/
 .venv/
 venv/
 
-# K8s secrets with real values — never commit
-k8s/01-secrets-real.yaml
+# K8s secrets with real values — managed via .secrets.env + deploy scripts
+
 
 # Editor
 .idea/
