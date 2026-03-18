@@ -39,7 +39,7 @@ fi
 # ── 1. Install K3s ───────────────────────────────────────────────────────────
 if ! command -v k3s &>/dev/null; then
   info "Installing K3s …"
-  curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable=traefik --write-kubeconfig-mode=644" sh -
+  curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode=644" sh -
   sleep 5
 else
   info "K3s already installed: $(k3s --version | head -1)"
