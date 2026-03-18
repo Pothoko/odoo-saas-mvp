@@ -108,16 +108,34 @@ class AccountMove(models.Model):
                 # Check if product category is "Odoo-SaaS" or a child of it
                 if not self._is_saas_category(product.categ_id, saas_category):
                     continue
-                # Skip if an instance was already created for this SO
+
+                # ── Find existing (non-deleted) instance for this SO ──────────
                 existing = Instance.search([
                     ("sale_order_id", "=", order.id),
                     ("state", "not in", ["deleted"]),
                 ], limit=1)
+
+                # ── Resume a suspended instance (overdue-payment resumed) ──────
+                if existing and existing.state == "suspended":
+                    logger.info(
+                        "Instance %s is suspended — resuming for SO %s.",
+                        existing.tenant_id, order.name,
+                    )
+                    try:
+                        existing.action_resume()
+                    except Exception:
+                        logger.exception(
+                            "Failed to resume suspended instance %s", existing.tenant_id
+                        )
+                    self._link_subscription(order, existing)
+                    continue
+
                 if existing:
                     logger.info(
-                        "Instance already exists for SO %s: %s — skipping.",
+                        "Instance already exists for SO %s: %s — ensuring linked.",
                         order.name, existing.tenant_id,
                     )
+                    self._link_subscription(order, existing)
                     continue
 
                 # Build tenant_id from partner name
@@ -135,6 +153,9 @@ class AccountMove(models.Model):
                     "Auto-created saas.instance %s for SO %s",
                     instance.tenant_id, order.name,
                 )
+
+                # ── Link subscription_id + advance stage ──────────────────────
+                self._link_subscription(order, instance)
 
                 # Provision (calls portal API)
                 try:
@@ -157,6 +178,35 @@ class AccountMove(models.Model):
                         "Failed to send provisioning email for %s",
                         instance.tenant_id,
                     )
+
+    def _link_subscription(self, order, instance):
+        """Link instance → subscription and auto-advance stage to In Progress."""
+        Subscription = self.env["sale.subscription"]
+        subscription = Subscription.search([
+            ("sale_order_id", "=", order.id),
+        ], limit=1)
+        if not subscription:
+            return
+
+        # Set subscription_id on the instance (fixes close-doesn't-stop bug)
+        if not instance.subscription_id:
+            instance.subscription_id = subscription.id
+            logger.info(
+                "Linked instance %s → subscription %s",
+                instance.tenant_id, subscription.name,
+            )
+
+        # Auto-advance subscription to "In Progress" if not already there
+        stage_ip = self.env.ref(
+            "subscription_oca.subscription_stage_in_progress",
+            raise_if_not_found=False,
+        )
+        if stage_ip and subscription.stage_id.id != stage_ip.id:
+            logger.info(
+                "Advancing subscription %s → In Progress", subscription.name,
+            )
+            subscription.sudo().write({"stage_id": stage_ip.id})
+
 
     @api.model
     def _get_saas_category(self):

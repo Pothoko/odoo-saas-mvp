@@ -262,3 +262,43 @@ class SaleSubscription(models.Model):
             categ = categ.parent_id
         return False
 
+    @api.model
+    def _cron_suspend_overdue(self):
+        """Cron: suspend instances whose subscription is past-due.
+
+        Finds subscriptions that are:
+        - Not in a closed stage
+        - Have exceeded their next invoice date (overdue payment)
+        - Have an active (ready) linked instance
+
+        Calls action_stop() on each overdue instance to scale it to 0.
+        """
+        stage_closed = self.env.ref(_STAGE_CLOSED, raise_if_not_found=False)
+        today = fields.Date.today()
+
+        domain = [
+            ("recurring_next_date", "<", today),
+        ]
+        if stage_closed:
+            domain.append(("stage_id", "!=", stage_closed.id))
+
+        overdue_subs = self.search(domain)
+        logger.info("_cron_suspend_overdue: checking %d overdue subscriptions", len(overdue_subs))
+
+        for sub in overdue_subs:
+            instances = self.env["saas.instance"].search([
+                ("subscription_id", "=", sub.id),
+                ("state", "=", "ready"),
+            ])
+            for inst in instances:
+                logger.info(
+                    "Suspending instance %s (subscription %s overdue since %s)",
+                    inst.tenant_id, sub.display_name, sub.recurring_next_date,
+                )
+                try:
+                    inst.action_stop()
+                except Exception:
+                    logger.exception(
+                        "Failed to suspend overdue instance %s", inst.tenant_id
+                    )
+

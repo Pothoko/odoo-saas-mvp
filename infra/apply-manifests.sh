@@ -65,9 +65,31 @@ if [[ ${#missing[@]} -gt 0 ]]; then
   exit 1
 fi
 
+# ── Ensure namespaces exist before we try to create secrets in them ──────────
+echo "==> Ensuring namespaces exist …"
+kubectl create namespace aeisoftware --dry-run=client -o yaml | kubectl apply $KUBECTL_ARGS -f - 2>/dev/null || true
+kubectl create namespace odoo-admin  --dry-run=client -o yaml | kubectl apply $KUBECTL_ARGS -f - 2>/dev/null || true
+
+# ── Ensure odoo-admin PVC exists (kubectl apply silently drops PVCs on 06) ───
+echo "==> Ensuring odoo-admin-data PVC exists …"
+kubectl get pvc odoo-admin-data -n odoo-admin &>/dev/null || \
+  kubectl apply $KUBECTL_ARGS -f - <<'PVCEOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-admin-data
+  namespace: odoo-admin
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+PVCEOF
+
 # ── Apply secrets first (from env vars, never from git files) ────────────────
 echo "==> Applying secrets from .secrets.env …"
-cat <<EOF | kubectl apply $KUBECTL_ARGS -f -
+cat <<EOF | kubectl apply $KUBECTL_ARGS --validate=false -f -
 apiVersion: v1
 kind: Secret
 metadata:
@@ -134,7 +156,7 @@ for f in "$REPO_ROOT"/k8s/0*.yaml; do
   fi
 
   echo "  applying $f …"
-  kubectl apply $KUBECTL_ARGS -f "$f"
+  kubectl apply $KUBECTL_ARGS --validate=false -f "$f"
 done
 
 # ── Wait for core services ────────────────────────────────────────────────────

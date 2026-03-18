@@ -42,7 +42,7 @@
     <field name="name">saas.instance.tree</field>
     <field name="model">saas.instance</field>
     <field name="arch" type="xml">
-      <list decoration-success="state == 'ready'" decoration-warning="state == 'provisioning'" decoration-muted="state in ('draft', 'deleted')">
+      <list decoration-success="state == 'ready'" decoration-warning="state in ('provisioning', 'suspended')" decoration-muted="state in ('draft', 'deleted')">
         <field name="name"/>
 
         <field name="tenant_id"/>
@@ -73,11 +73,17 @@
                   invisible="state not in ('draft', 'error')"/>
           <button name="action_check_status" type="object" string="Refresh Status"
                   invisible="state != 'provisioning'"/>
+          <button name="action_stop" type="object" string="Suspend"
+                  class="btn-warning"
+                  invisible="state != 'ready'"/>
+          <button name="action_resume" type="object" string="Resume"
+                  class="btn-success"
+                  invisible="state != 'suspended'"/>
           <button name="action_delete" type="object" string="Delete Instance"
                   class="btn-danger"
                   invisible="state in ('draft', 'deleted')"/>
           <field name="state" widget="statusbar"
-                 statusbar_visible="draft,provisioning,ready"/>
+                 statusbar_visible="draft,provisioning,ready,suspended"/>
         </header>
         <sheet>
           <div class="oe_button_box" name="button_box">
@@ -94,6 +100,7 @@
           <widget name="web_ribbon" title="Ready" bg_color="text-bg-success" invisible="state != 'ready'"/>
           <widget name="web_ribbon" title="Error" bg_color="text-bg-danger" invisible="state != 'error'"/>
           <widget name="web_ribbon" title="Provisioning" bg_color="text-bg-warning" invisible="state != 'provisioning'"/>
+          <widget name="web_ribbon" title="Suspended" bg_color="text-bg-warning" invisible="state != 'suspended'"/>
           <widget name="web_ribbon" title="Deleted" bg_color="text-bg-secondary" invisible="state != 'deleted'"/>
 
           <div class="oe_title">

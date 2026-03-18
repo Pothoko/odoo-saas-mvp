@@ -36,6 +36,7 @@ class SaasInstance(models.Model):
             ("draft", "Draft"),
             ("provisioning", "Provisioning"),
             ("ready", "Ready"),
+            ("suspended", "Suspended"),
             ("error", "Error"),
             ("deleted", "Deleted"),
         ],
@@ -153,6 +154,50 @@ class SaasInstance(models.Model):
         except Exception as exc:
             self.write({"state": "error", "error_msg": str(exc)})
             raise UserError(f"Delete failed: {exc}") from exc
+
+    def action_stop(self):
+        """Suspend the instance (scale to 0 replicas in K8s).
+
+        Calls POST /api/v1/instances/{tenant_id}/stop on the portal.
+        Sets state → 'suspended'.
+        """
+        self.ensure_one()
+        if self.state not in ("ready",):
+            raise UserError(_("Can only suspend a Ready instance."))
+        try:
+            resp = requests.post(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/stop",
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self.write({"state": "suspended", "error_msg": False})
+            logger.info("Instance %s suspended.", self.tenant_id)
+        except Exception as exc:
+            self.write({"state": "error", "error_msg": str(exc)})
+            raise UserError(f"Suspend failed: {exc}") from exc
+
+    def action_resume(self):
+        """Resume a suspended instance (scale back to 1 replica).
+
+        Calls POST /api/v1/instances/{tenant_id}/start on the portal.
+        Sets state → 'ready'.
+        """
+        self.ensure_one()
+        if self.state not in ("suspended",):
+            raise UserError(_("Can only resume a Suspended instance."))
+        try:
+            resp = requests.post(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/start",
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self.write({"state": "ready", "error_msg": False})
+            logger.info("Instance %s resumed.", self.tenant_id)
+        except Exception as exc:
+            self.write({"state": "error", "error_msg": str(exc)})
+            raise UserError(f"Resume failed: {exc}") from exc
 
     def action_open_url(self):
         self.ensure_one()
