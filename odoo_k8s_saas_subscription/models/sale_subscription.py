@@ -18,8 +18,8 @@ from odoo.exceptions import UserError
 logger = logging.getLogger(__name__)
 
 # Stage XML IDs from subscription_oca
-_STAGE_IN_PROGRESS = "subscription_oca.stage_in_progress"
-_STAGE_CLOSED = "subscription_oca.stage_closed"
+_STAGE_IN_PROGRESS = "subscription_oca.subscription_stage_in_progress"
+_STAGE_CLOSED = "subscription_oca.subscription_stage_closed"
 
 
 class SaleSubscription(models.Model):

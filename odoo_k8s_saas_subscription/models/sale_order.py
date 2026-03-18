@@ -98,7 +98,7 @@ class SaleOrder(models.Model):
                 )
 
                 # If the subscription is already 'In Progress', provision the instance immediately
-                stage_in_progress = self.env.ref("subscription_oca.stage_in_progress", raise_if_not_found=False)
+                stage_in_progress = self.env.ref("subscription_oca.subscription_stage_in_progress", raise_if_not_found=False)
                 if stage_in_progress and subscription.stage_id.id == stage_in_progress.id:
                     try:
                         instance.action_provision()
