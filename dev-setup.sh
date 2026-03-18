@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# dev-setup.sh — Bootstrap local K3s dev environment on WSL
+# dev-setup.sh — Bootstrap local K3s dev environment on WSL / Linux
 #
 # Usage:
 #   chmod +x dev-setup.sh
-#   ./dev-setup.sh
-#
-# What it does:
-#   1. Installs K3s (single-node cluster) if not already installed
-#   2. Waits for the cluster to be healthy
-#   3. Builds the portal image locally and imports it into K3s
-#   4. Applies all K8s manifests (except Cloudflare tunnel)
-#   5. Applies dev-only secret overrides
-#   6. Prints access info
+#   DB_PASSWORD="my_db_password" API_KEY="my_api_key" ./dev-setup.sh
 # =============================================================================
 set -euo pipefail
 
@@ -24,11 +16,25 @@ ADDON_DIR="$REPO_ROOT/odoo_k8s_saas"
 PORTAL_IMAGE="saas-portal:dev"
 ODOO_IMAGE="odoo:18"
 
+export DB_PASSWORD="${DB_PASSWORD:-DevPass2026!}"
+export API_KEY="${API_KEY:-dev-api-key-local}"
+export ADMIN_PASSWD="${ADMIN_PASSWD:-admin}"
+
 # ── colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
+
+# ── Pre-flight Checks ────────────────────────────────────────────────────────
+info "Running pre-flight checks..."
+if ! command -v docker &>/dev/null; then
+  error "Docker is not installed. Please install Docker first: sudo apt install docker.io"
+fi
+
+if ! docker ps &>/dev/null; then
+  error "Cannot access Docker daemon. Ensure you are in the docker group or run: sudo chmod 666 /var/run/docker.sock"
+fi
 
 # ── 1. Install K3s ───────────────────────────────────────────────────────────
 if ! command -v k3s &>/dev/null; then
@@ -54,12 +60,59 @@ info "Importing portal image into K3s containerd …"
 docker save "$PORTAL_IMAGE" | sudo k3s ctr images import -
 
 # ── 3. Create namespaces ─────────────────────────────────────────────────────
-info "Applying namespace manifest …"
+info "Applying namespace manifest (and explicitly odoo-admin) …"
 kubectl apply -f "$K8S_DIR/00-namespace.yaml"
+kubectl create namespace odoo-admin --dry-run=client -o yaml | kubectl apply -f -
 
-# ── 4. Apply dev secrets (overrides production values) ───────────────────────
-info "Applying dev secrets …"
-kubectl apply -f "$K8S_DIR/dev/00-dev-secrets.yaml"
+# ── 4. Apply dev secrets ─────────────────────────────────────────────────────
+info "Applying dynamic dev secrets …"
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: aeisoftware
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "${DB_PASSWORD}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: portal-secret
+  namespace: aeisoftware
+type: Opaque
+stringData:
+  API_KEY: "${API_KEY}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: portal-secret
+  namespace: odoo-admin
+type: Opaque
+stringData:
+  API_KEY: "${API_KEY}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: odoo-admin-secret
+  namespace: odoo-admin
+type: Opaque
+stringData:
+  DB_PASSWORD: "${DB_PASSWORD}"
+  ADMIN_PASSWD: "${ADMIN_PASSWD}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: odoo-admin
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "${DB_PASSWORD}"
+EOF
 
 # ── 5. Apply Postgres (postgres:16) ──────────────────────────────────────────
 info "Applying Postgres 16 …"
@@ -80,11 +133,27 @@ kubectl -n aeisoftware patch deployment portal \
   ]'
 
 # Patch portal API_KEY to match dev value
-kubectl -n aeisoftware set env deployment/portal API_KEY="dev-api-key-local"
+kubectl -n aeisoftware set env deployment/portal API_KEY="${API_KEY}"
 
 # ── 8. Apply Odoo admin ───────────────────────────────────────────────────────
 info "Applying Odoo admin deployment …"
 kubectl apply -f "$K8S_DIR/06-odoo-admin.yaml"
+
+# Re-apply dev secrets ONLY over the ones redefined by 06-odoo-admin.yaml
+info "Re-applying dev secrets to prevent override by production templates …"
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: odoo-admin-secret
+  namespace: odoo-admin
+type: Opaque
+stringData:
+  DB_PASSWORD: "${DB_PASSWORD}"
+  ADMIN_PASSWD: "${ADMIN_PASSWD}"
+EOF
+
+kubectl -n odoo-admin rollout restart deployment odoo-admin
 
 # ── 9. Expose services locally via NodePort (dev only) ───────────────────────
 info "Exposing Odoo and Portal as NodePort services …"
@@ -128,8 +197,9 @@ echo ""
 echo -e "  Odoo Admin:   http://${WSL_IP}:${ODOO_PORT}"
 echo -e "  Portal API:   http://${WSL_IP}:${PORTAL_PORT}/docs"
 echo ""
-echo -e "  API key (dev): dev-api-key-local"
-echo -e "  DB password:   DevPass2026!"
+echo -e "  API key:       ${API_KEY}"
+echo -e "  DB password:   ${DB_PASSWORD}"
+echo -e "  Admin passwd:  ${ADMIN_PASSWD}"
 echo ""
 echo -e "  kubectl alias: export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
 echo -e "${GREEN}══════════════════════════════════════════════════════${NC}"
