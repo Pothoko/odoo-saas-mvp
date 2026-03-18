@@ -97,11 +97,8 @@ class SaleSubscription(models.Model):
             )
 
         # Generate a new tenant ID
-        partner = self.partner_id
-        slug = re.sub(r"[^a-z0-9]+", "-", (partner.name or "tenant").lower()).strip("-")
-        slug = slug[:30].rstrip("-")
-        seq = self.env["ir.sequence"].next_by_code("saas.tenant.id") or "001"
-        tenant_id = f"{slug}-{seq}"
+        sub_code = (self.name or "").lower().replace("/", "-")
+        tenant_id = self._generate_saas_tenant_id(self.partner_id, sub_code)
 
         # Determine plan from subscription template name
         plan = "starter"
@@ -115,11 +112,11 @@ class SaleSubscription(models.Model):
         storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
 
         instance = self.env["saas.instance"].create({
-            "name": f"{partner.name} — Re-provision ({self.display_name})",
+            "name": f"{self.partner_id.name} — Re-provision ({self.display_name})",
             "tenant_id": tenant_id,
             "plan": plan,
             "storage_gi": storage_map.get(plan, 10),
-            "partner_id": partner.id,
+            "partner_id": self.partner_id.id,
             "sale_order_id": self.sale_order_id.id if self.sale_order_id else False,
             "subscription_id": self.id,
         })
@@ -172,11 +169,50 @@ class SaleSubscription(models.Model):
                 ("subscription_id", "=", rec.id),
                 ("state", "not in", ["deleted"]),
             ])
-            if not instances:
-                continue
 
-            # → In Progress: provision
+            # → In Progress: create and provision
             if stage_in_progress and new_stage_id == stage_in_progress.id:
+                if not instances and rec.sale_order_id:
+                    # Check if there is a SaaS product in the SO
+                    saas_category = self.env.ref("odoo_k8s_saas.product_category_odoo_saas", raise_if_not_found=False)
+                    has_saas = False
+                    for line in rec.sale_order_id.order_line:
+                        if not line.product_id:
+                            continue
+                        in_categ = saas_category and rec._is_saas_category(line.product_id.categ_id, saas_category)
+                        in_name = "saas" in (line.product_id.name or "").lower()
+                        if in_categ or in_name:
+                            has_saas = True
+                            break
+                    
+                    if has_saas:
+                        # Create the instance
+                        sub_code = (rec.name or "").lower().replace("/", "-")
+                        tenant_id = rec._generate_saas_tenant_id(rec.partner_id, sub_code)
+
+                        plan = "starter"
+                        if rec.template_id:
+                            tmpl_name = (rec.template_id.name or "").lower()
+                            if "enterprise" in tmpl_name:
+                                plan = "enterprise"
+                            elif "pro" in tmpl_name:
+                                plan = "pro"
+
+                        storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
+
+                        inst = self.env["saas.instance"].create({
+                            "name": f"{rec.partner_id.name} — {rec.display_name}",
+                            "tenant_id": tenant_id,
+                            "plan": plan,
+                            "storage_gi": storage_map.get(plan, 10),
+                            "partner_id": rec.partner_id.id,
+                            "sale_order_id": rec.sale_order_id.id,
+                            "subscription_id": rec.id,
+                        })
+                        logger.info("Created saas.instance %s from subscription %s", inst.tenant_id, rec.name)
+                        instances = inst
+
+                # Provision any draft/error instances
                 for inst in instances.filtered(lambda i: i.state in ("draft", "error")):
                     logger.info(
                         "Subscription %s → In Progress: provisioning instance %s",
@@ -208,4 +244,21 @@ class SaleSubscription(models.Model):
                         )
 
         return res
+
+    def _generate_saas_tenant_id(self, partner, suffix=""):
+        """Generate a URL-safe tenant_id from partner name + suffix."""
+        slug = re.sub(r"[^a-z0-9]+", "-", (partner.name or "tenant").lower()).strip("-")
+        slug = slug[:25].rstrip("-")
+        suffix = re.sub(r"[^a-z0-9]+", "-", suffix).strip("-")
+        if not suffix:
+            suffix = self.env["ir.sequence"].next_by_code("saas.tenant.id") or "001"
+        return f"{slug}-{suffix}"
+
+    def _is_saas_category(self, categ, saas_categ):
+        """Return True if categ is saas_categ or a child of it."""
+        while categ:
+            if categ.id == saas_categ.id:
+                return True
+            categ = categ.parent_id
+        return False
 
