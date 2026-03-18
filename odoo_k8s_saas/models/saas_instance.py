@@ -153,3 +153,12 @@ class SaasInstance(models.Model):
         except Exception as exc:
             self.write({"state": "error", "error_msg": str(exc)})
             raise UserError(f"Delete failed: {exc}") from exc
+
+    def action_open_url(self):
+        self.ensure_one()
+        if self.url:
+            return {
+                "type": "ir.actions.act_url",
+                "url": self.url,
+                "target": "new",
+            }
