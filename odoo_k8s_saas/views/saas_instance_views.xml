@@ -11,6 +11,7 @@
               <field name="plan"/>
               <field name="state"/>
               <field name="url"/>
+              <field name="subscription_id"/>
               <templates>
                   <t t-name="kanban-box">
                       <div class="oe_kanban_global_click">
@@ -20,6 +21,7 @@
                               </strong>
                               <div class="o_kanban_tags_section mt-2">
                                   <span class="badge rounded-pill text-bg-info"><field name="plan"/></span>
+                                  <span t-if="record.subscription_id.raw_value" class="badge rounded-pill text-bg-primary ml-1"><field name="subscription_id"/></span>
                                   <span t-if="record.tenant_id.raw_value" class="badge rounded-pill text-bg-light border ml-1"><field name="tenant_id"/></span>
                               </div>
                               <div class="mt-3">
@@ -42,6 +44,7 @@
     <field name="arch" type="xml">
       <list decoration-success="state == 'ready'" decoration-warning="state == 'provisioning'" decoration-muted="state in ('draft', 'deleted')">
         <field name="name"/>
+        <field name="subscription_id"/>
         <field name="tenant_id"/>
         <field name="plan" widget="badge" decoration-info="plan == 'pro'" decoration-success="plan == 'enterprise'"/>
         <field name="state" widget="badge"
@@ -101,6 +104,7 @@
               <field name="tenant_id" placeholder="e.g. my-company"/>
               <field name="partner_id"/>
               <field name="sale_order_id" readonly="1"/>
+              <field name="subscription_id" readonly="1"/>
             </group>
             <group string="Configuration">
               <field name="plan"/>
