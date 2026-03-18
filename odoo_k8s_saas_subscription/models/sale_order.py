@@ -97,6 +97,14 @@ class SaleOrder(models.Model):
                     instance.tenant_id, subscription.display_name,
                 )
 
+                # If the subscription is already 'In Progress', provision the instance immediately
+                stage_in_progress = self.env.ref("subscription_oca.stage_in_progress", raise_if_not_found=False)
+                if stage_in_progress and subscription.stage_id.id == stage_in_progress.id:
+                    try:
+                        instance.action_provision()
+                    except Exception:
+                        logger.exception("Failed to auto-provision %s", instance.tenant_id)
+
         return res
 
     def _generate_saas_tenant_id(self, partner):
