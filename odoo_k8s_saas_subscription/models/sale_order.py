@@ -34,11 +34,13 @@ class SaleOrder(models.Model):
         Instance = self.env["saas.instance"]
 
         for order in self:
-            # Check if any SO lines are in the SaaS category
+            # Check if any SO lines are in the SaaS category OR have "saas" in the name
             saas_lines = order.order_line.filtered(
                 lambda l: l.product_id
-                and l.product_id.categ_id
-                and self._is_saas_category(l.product_id.categ_id, saas_category)
+                and (
+                    (l.product_id.categ_id and saas_category and self._is_saas_category(l.product_id.categ_id, saas_category))
+                    or "saas" in (l.product_id.name or "").lower()
+                )
             )
             if not saas_lines:
                 continue
