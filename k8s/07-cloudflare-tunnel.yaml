@@ -1,0 +1,76 @@
+# k8s/07-cloudflare-tunnel.yaml
+# Cloudflare Tunnel para exponer el webhook de QR Mercantil
+# (y cualquier otro servicio interno de k3s a internet)
+#
+# El token ya tiene configurado en el dashboard de Cloudflare:
+#   https://<tu-dominio>/payment/qr_mercantil/webhook  →  odoo-admin:8069
+#
+# Aplicar: kubectl apply -f k8s/07-cloudflare-tunnel.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudflare
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflared-token
+  namespace: cloudflare
+type: Opaque
+stringData:
+  # Token obtenido desde Zero Trust > Networks > Tunnels
+  TUNNEL_TOKEN: "eyJhIjoiMjc1NWI0MWI4MTFkYzlhZmM3Mzk2ZWQ1ZDFlMjc2NDQiLCJ0IjoiMzgyOWEyMDYtZjdlZC00ZTZhLWI3NWQtOTU0NDQ0ZWFhNGE0IiwicyI6Ik1tUXpOelpsWWpjdFpEVmtaUzAwTlRKbExXSTNOemt0TldZME9Ea3daREU1TUdSbCJ9"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflare
+  labels:
+    app: cloudflared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflared-token
+                  key: TUNNEL_TOKEN
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      restartPolicy: Always

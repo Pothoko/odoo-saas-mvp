@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        QR Mercantil — payment form template shown in the checkout page.
+        Shown when rendering_values['qr_image'] is available.
+    -->
+    <template id="payment_qr_mercantil_form" name="QR Mercantil - Formulario de pago">
+        <t t-call="payment.checkout">
+            <t t-set="provider_template">
+                <div t-if="provider.code == 'qr_mercantil'" class="qr_mercantil_form">
+                    <div class="text-center my-3">
+                        <p class="fw-bold">Escaneá el QR para pagar</p>
+                        <t t-if="rendering_values.get('qr_image')">
+                            <img
+                                t-attf-src="data:image/png;base64,#{rendering_values['qr_image']}"
+                                alt="QR Mercantil"
+                                class="img-fluid border rounded p-2"
+                                style="max-width:280px;"
+                            />
+                        </t>
+                        <t t-else="">
+                            <div class="alert alert-warning mt-2">
+                                No se pudo generar el QR. Por favor recargá la página o contactá soporte.
+                            </div>
+                        </t>
+
+                        <p class="text-muted small mt-2">
+                            Monto: <strong>
+                                <t t-esc="rendering_values.get('currency', 'BOB')"/>
+                                <t t-esc="rendering_values.get('amount', '')"/>
+                            </strong>
+                        </p>
+                        <p class="text-muted small">El QR vence en 24 horas.</p>
+
+                        <!-- Polling state display -->
+                        <div id="qr_mercantil_status_msg" class="mt-2">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"/>
+                            Esperando confirmación del banco…
+                        </div>
+
+                        <!-- Hidden data for JS polling -->
+                        <input type="hidden" id="qr_mercantil_reference"
+                               t-att-value="rendering_values.get('alias', '')"/>
+                        <input type="hidden" id="qr_mercantil_status_url"
+                               t-att-value="rendering_values.get('status_url', '')"/>
+                        <input type="hidden" id="qr_mercantil_landing"
+                               t-att-value="rendering_values.get('landing_route', '/payment/status')"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>
