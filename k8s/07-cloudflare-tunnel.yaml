@@ -62,16 +62,6 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
-          livenessProbe:
-            httpGet:
-              path: /ready
-              port: 2000
-            initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 2000
-            initialDelaySeconds: 5
-            periodSeconds: 10
+          # Sin probes — igual que el docker-compose que funciona.
+          # k8s reinicia el pod automáticamente si el proceso muere.
       restartPolicy: Always
