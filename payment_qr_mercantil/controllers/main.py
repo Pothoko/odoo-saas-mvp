@@ -121,7 +121,8 @@ class QRMercantilController(http.Controller):
                 # MC4 wraps data inside 'objeto'
                 objeto = status_data.get('objeto') or {}
                 estado = (
-                    objeto.get('estado')
+                    objeto.get('estadoActual')      # MC4 real field name
+                    or objeto.get('estado')
                     or objeto.get('estadoTransaccion')
                     or objeto.get('status')
                     or status_data.get('estado')
