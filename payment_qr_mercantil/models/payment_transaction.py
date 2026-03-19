@@ -48,15 +48,21 @@ class PaymentTransaction(models.Model):
                 description=f"Pedido {reference}",
                 callback_url=callback_url,
             )
+            # MC4 wraps all response data inside 'objeto'
+            qr_objeto = qr_data.get('objeto') or {}
             qr_image = (
-                qr_data.get('qrImage')
+                qr_objeto.get('imagenQr')
+                or qr_objeto.get('qrImage')
+                or qr_data.get('qrImage')
                 or qr_data.get('imagenQr')
                 or qr_data.get('qr_image')
                 or qr_data.get('image')
                 or ''
             )
             qr_id = (
-                qr_data.get('idQr')
+                qr_objeto.get('idQr')
+                or qr_objeto.get('id')
+                or qr_data.get('idQr')
                 or qr_data.get('id_qr')
                 or qr_data.get('id')
                 or ''
