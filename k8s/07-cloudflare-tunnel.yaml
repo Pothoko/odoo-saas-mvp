@@ -1,9 +1,9 @@
 # k8s/07-cloudflare-tunnel.yaml
-# Cloudflare Tunnel para exponer el webhook de QR Mercantil
-# (y cualquier otro servicio interno de k3s a internet)
+# Cloudflare Tunnel — expone admin.aeisoftware.com → odoo-admin:8069 en k3s
 #
-# El token ya tiene configurado en el dashboard de Cloudflare:
-#   https://<tu-dominio>/payment/qr_mercantil/webhook  →  odoo-admin:8069
+# IMPORTANTE: el routing se configura en el dashboard de Cloudflare Zero Trust:
+#   Zero Trust > Networks > Tunnels > <este-tunnel> > Edit > Public Hostname
+#   Subdomain: admin | Domain: aeisoftware.com | Service: http://odoo-admin.odoo.svc.cluster.local:8069
 #
 # Aplicar: kubectl apply -f k8s/07-cloudflare-tunnel.yaml
 ---
@@ -19,8 +19,24 @@ metadata:
   namespace: cloudflare
 type: Opaque
 stringData:
-  # Token obtenido desde Zero Trust > Networks > Tunnels
   TUNNEL_TOKEN: "eyJhIjoiMjc1NWI0MWI4MTFkYzlhZmM3Mzk2ZWQ1ZDFlMjc2NDQiLCJ0IjoiMzgyOWEyMDYtZjdlZC00ZTZhLWI3NWQtOTU0NDQ0ZWFhNGE0IiwicyI6Ik1tUXpOelpsWWpjdFpEVmtaUzAwTlRKbExXSTNOemt0TldZME9Ea3daREU1TUdSbCJ9"
+---
+# ConfigMap con las reglas de ingress — evita configurar el dashboard manualmente
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: cloudflare
+data:
+  config.yaml: |
+    ingress:
+      # Odoo Admin — todas las rutas (incluyendo /payment/qr_mercantil/webhook)
+      - hostname: admin.aeisoftware.com
+        service: http://odoo-admin.odoo.svc.cluster.local:8069
+        originRequest:
+          noTLSVerify: true
+      # Catch-all obligatorio al final
+      - service: http_status:404
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,6 +61,8 @@ spec:
           args:
             - tunnel
             - --no-autoupdate
+            - --config
+            - /etc/cloudflared/config.yaml
             - run
             - --token
             - $(TUNNEL_TOKEN)
@@ -54,6 +72,10 @@ spec:
                 secretKeyRef:
                   name: cloudflared-token
                   key: TUNNEL_TOKEN
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -73,4 +95,8 @@ spec:
               port: 2000
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: cloudflared-config
       restartPolicy: Always
