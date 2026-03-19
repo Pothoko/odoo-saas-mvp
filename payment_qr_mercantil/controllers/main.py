@@ -9,6 +9,37 @@ _logger = logging.getLogger(__name__)
 
 class QRMercantilController(http.Controller):
 
+    # ── Redirect target — shown after "Pagar ahora" is clicked ───────────────
+
+    @http.route(
+        '/payment/qr_mercantil/display',
+        type='http',
+        auth='public',
+        website=True,
+        methods=['GET'],
+        sitemap=False,
+    )
+    def display_qr(self, reference=None, **kwargs):
+        """Show the QR code page and start polling for payment confirmation."""
+        if not reference:
+            return request.redirect('/payment/status')
+
+        tx = request.env['payment.transaction'].sudo().search(
+            [('reference', '=', reference), ('provider_code', '=', 'qr_mercantil')],
+            limit=1,
+        )
+        if not tx:
+            _logger.warning("QR Mercantil: transaction not found for reference=%s", reference)
+            return request.redirect('/payment/status')
+
+        return request.render('payment_qr_mercantil.qr_mercantil_display', {
+            'reference': reference,
+            'qr_image': tx.qr_mercantil_image or '',
+            'amount': tx.amount,
+            'currency': tx.currency_id.name if tx.currency_id else 'BOB',
+            'landing_route': tx.landing_route or '/payment/status',
+        })
+
     # ── Webhook — called by the bank when QR is paid ─────────────────────────
 
     @http.route(

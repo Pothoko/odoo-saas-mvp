@@ -25,6 +25,8 @@
             <field name="is_published">True</field>
             <field name="qr_mercantil_base_url">https://sip.mc4.com.bo:8443</field>
             <field name="payment_method_ids" eval="[(4, ref('payment_method_qr_mercantil'))]"/>
+            <!-- Link the redirect form view so Odoo 18 renders #o_payment_redirect_form into the checkout DOM -->
+            <field name="redirect_form_view_id" ref="payment_qr_mercantil.qr_mercantil_redirect_form"/>
         </record>
     </data>
 
