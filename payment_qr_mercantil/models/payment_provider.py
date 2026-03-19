@@ -98,6 +98,9 @@ class PaymentProvider(models.Model):
                     data.get('token')
                     or data.get('accessToken')
                     or data.get('access_token')
+                    # MC4: {"codigo":"OK","objeto":{"token":"eyJ..."}}
+                    or (data.get('objeto') or {}).get('token')
+                    or (data.get('objeto') or {}).get('accessToken')
                     or ''
                 )
                 _logger.info(
