@@ -65,6 +65,12 @@ class PaymentProvider(models.Model):
         """Obtiene un JWT token del endpoint de autenticación."""
         self.ensure_one()
         url = f"{self.qr_mercantil_base_url}/autenticacion/v1/generarToken"
+        _logger.info(
+            "QR Mercantil: obteniendo token → url=%s apikey_len=%d user=%s",
+            url,
+            len(self.qr_mercantil_api_key or ''),
+            self.qr_mercantil_username or '(vacío)',
+        )
         try:
             resp = requests.post(
                 url,
@@ -79,19 +85,36 @@ class PaymentProvider(models.Model):
                 timeout=15,
                 verify=True,
             )
+            _logger.info(
+                "QR Mercantil: respuesta token → status=%s body=%s",
+                resp.status_code,
+                resp.text[:300],
+            )
             resp.raise_for_status()
             data = resp.json()
             # Handle {"token":"..."} or raw JWT string
             if isinstance(data, dict):
-                return (
+                token = (
                     data.get('token')
                     or data.get('accessToken')
                     or data.get('access_token')
                     or ''
                 )
-            return str(data)
+                _logger.info(
+                    "QR Mercantil: token obtenido → keys=%s token_len=%d",
+                    list(data.keys()),
+                    len(token),
+                )
+                return token
+            token = str(data)
+            _logger.info("QR Mercantil: token raw len=%d", len(token))
+            return token
         except requests.exceptions.RequestException as exc:
-            _logger.error("QR Mercantil: error al obtener token: %s", exc)
+            _logger.error(
+                "QR Mercantil: error al obtener token: %s body=%s",
+                exc,
+                getattr(exc.response, 'text', '')[:300] if hasattr(exc, 'response') else '',
+            )
             raise ValidationError(
                 _("No se pudo autenticar con QR Mercantil: %s") % exc
             )
@@ -106,6 +129,22 @@ class PaymentProvider(models.Model):
             due_date = (datetime.now() + timedelta(days=1)).strftime('%d/%m/%Y')
 
         url = f"{self.qr_mercantil_base_url}/api/v1/generaQr"
+        payload = {
+            'alias': alias,
+            'callback': callback_url,
+            'detalleGlosa': description,
+            'monto': float(amount),
+            'moneda': currency_name,
+            'fechaVencimiento': due_date,
+            'tipoSolicitud': 'API',
+        }
+        _logger.info(
+            "QR Mercantil: generando QR → url=%s apikeyServicio_len=%d token_len=%d payload=%s",
+            url,
+            len(self.qr_mercantil_api_key_service or ''),
+            len(token or ''),
+            payload,
+        )
         try:
             resp = requests.post(
                 url,
@@ -114,22 +153,24 @@ class PaymentProvider(models.Model):
                     'Authorization': f'Bearer {token}',
                     'Content-Type': 'application/json',
                 },
-                json={
-                    'alias': alias,
-                    'callback': callback_url,
-                    'detalleGlosa': description,
-                    'monto': float(amount),
-                    'moneda': currency_name,
-                    'fechaVencimiento': due_date,
-                    'tipoSolicitud': 'API',
-                },
+                json=payload,
                 timeout=15,
                 verify=True,
+            )
+            _logger.info(
+                "QR Mercantil: respuesta generaQr → status=%s body=%s",
+                resp.status_code,
+                resp.text[:500],
             )
             resp.raise_for_status()
             return resp.json()
         except requests.exceptions.RequestException as exc:
-            _logger.error("QR Mercantil: error al generar QR (alias=%s): %s", alias, exc)
+            _logger.error(
+                "QR Mercantil: error al generar QR (alias=%s): %s body=%s",
+                alias,
+                exc,
+                getattr(exc.response, 'text', '')[:500] if hasattr(exc, 'response') else '',
+            )
             raise ValidationError(
                 _("No se pudo generar el QR Mercantil: %s") % exc
             )
