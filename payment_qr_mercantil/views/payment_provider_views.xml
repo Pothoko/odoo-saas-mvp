@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Extend payment provider form to show QR Mercantil credentials -->
+    <record id="payment_provider_form_qr_mercantil" model="ir.ui.view">
+        <field name="name">payment.provider.form.qr_mercantil</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="QR Mercantil" attrs="{'invisible': [('code', '!=', 'qr_mercantil')]}">
+                    <group string="Credenciales API">
+                        <field name="qr_mercantil_base_url" string="URL Base API"/>
+                        <field name="qr_mercantil_api_key" string="API Key (Login)" password="True"/>
+                        <field name="qr_mercantil_api_key_service" string="API Key Servicio" password="True"/>
+                        <field name="qr_mercantil_username" string="Usuario"/>
+                        <field name="qr_mercantil_password" string="Contraseña" password="True"/>
+                    </group>
+                    <group string="Información">
+                        <div class="alert alert-info" role="alert">
+                            <strong>Webhook URL:</strong> configure este URL en el panel del banco para recibir notificaciones de pago:<br/>
+                            <code>/payment/qr_mercantil/webhook</code>
+                            <br/>(anteponé el dominio público de tu instancia Odoo)
+                        </div>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
