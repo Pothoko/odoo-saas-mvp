@@ -122,6 +122,7 @@ spec:
       containers:
         - name: odoo
           image: odoo:18
+          args: ["-u", "payment_qr_mercantil"]
           ports:
             - containerPort: 8069
             - containerPort: 8072
