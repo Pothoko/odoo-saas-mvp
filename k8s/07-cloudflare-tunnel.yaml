@@ -21,23 +21,6 @@ type: Opaque
 stringData:
   TUNNEL_TOKEN: "eyJhIjoiMjc1NWI0MWI4MTFkYzlhZmM3Mzk2ZWQ1ZDFlMjc2NDQiLCJ0IjoiMzgyOWEyMDYtZjdlZC00ZTZhLWI3NWQtOTU0NDQ0ZWFhNGE0IiwicyI6Ik1tUXpOelpsWWpjdFpEVmtaUzAwTlRKbExXSTNOemt0TldZME9Ea3daREU1TUdSbCJ9"
 ---
-# ConfigMap con las reglas de ingress — evita configurar el dashboard manualmente
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cloudflared-config
-  namespace: cloudflare
-data:
-  config.yaml: |
-    ingress:
-      # Odoo Admin — todas las rutas (incluyendo /payment/qr_mercantil/webhook)
-      - hostname: admin.aeisoftware.com
-        service: http://odoo-admin.odoo.svc.cluster.local:8069
-        originRequest:
-          noTLSVerify: true
-      # Catch-all obligatorio al final
-      - service: http_status:404
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -47,6 +30,8 @@ metadata:
     app: cloudflared
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: cloudflared
@@ -61,8 +46,6 @@ spec:
           args:
             - tunnel
             - --no-autoupdate
-            - --config
-            - /etc/cloudflared/config.yaml
             - run
             - --token
             - $(TUNNEL_TOKEN)
@@ -72,10 +55,6 @@ spec:
                 secretKeyRef:
                   name: cloudflared-token
                   key: TUNNEL_TOKEN
-          volumeMounts:
-            - name: config
-              mountPath: /etc/cloudflared
-              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -95,8 +74,4 @@ spec:
               port: 2000
             initialDelaySeconds: 5
             periodSeconds: 10
-      volumes:
-        - name: config
-          configMap:
-            name: cloudflared-config
       restartPolicy: Always
