@@ -52,6 +52,13 @@ class PaymentProvider(models.Model):
         ),
     )
 
+    # ── Odoo 18 payment method declaration ──────────────────────────────────
+
+    def _get_payment_method_information(self):
+        res = super()._get_payment_method_information()
+        res['qr_mercantil'] = {'mode': 'unique', 'domain': [('type', '=', 'unknown')]}
+        return res
+
     # ── API helpers ──────────────────────────────────────────────────────────
 
     def _qr_mercantil_get_token(self):
