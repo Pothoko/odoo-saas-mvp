@@ -153,7 +153,7 @@ class SaleSubscription(models.Model):
         if "stage_id" not in vals:
             return res
 
-        new_stage_id = vals["stage_id"]
+        new_stage_id = int(vals["stage_id"])  # RPC may deliver as str; cast for safe comparison
 
         # Resolve known stage IDs
         stage_in_progress = self.env.ref(_STAGE_IN_PROGRESS, raise_if_not_found=False)
