@@ -8,7 +8,7 @@
         <field name="inherit_id" ref="payment.payment_provider_form"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="QR Mercantil" attrs="{'invisible': [('code', '!=', 'qr_mercantil')]}">
+                <page string="QR Mercantil" invisible="code != 'qr_mercantil'">
                     <group string="Credenciales API">
                         <field name="qr_mercantil_base_url" string="URL Base API"/>
                         <field name="qr_mercantil_api_key" string="API Key (Login)" password="True"/>
