@@ -26,7 +26,7 @@ spec:
 # It is applied by infra/apply-manifests.sh from .secrets.env (gitignored).
 # Running `kubectl apply -f 06-odoo-admin.yaml` directly will NOT touch secrets.
 
-
+---
 # ${DB_PASSWORD} and ${ADMIN_PASSWD} are substituted at startup by the
 # render-config init container using envsubst.
 apiVersion: v1
@@ -77,10 +77,11 @@ spec:
             - sh
             - -c
             - |
-              # Clone main SaaS repo (base addon + bridge module)
+              # Clone main SaaS repo (base addons + payment_qr_mercantil)
               git clone --depth=1 -b main https://github.com/jpvargassoruco/odoo-saas-mvp.git /tmp/repo
               cp -r /tmp/repo/odoo_k8s_saas /mnt/extra-addons/
               cp -r /tmp/repo/odoo_k8s_saas_subscription /mnt/extra-addons/
+              cp -r /tmp/repo/payment_qr_mercantil /mnt/extra-addons/
               # Clone subscription_oca from OCA fork
               git clone --depth=1 -b 18.0 https://github.com/jpvargassoruco/odoo18-oca-contract.git /tmp/oca-contract
               cp -r /tmp/oca-contract/subscription_oca /mnt/extra-addons/
