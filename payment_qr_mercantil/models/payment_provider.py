@@ -42,6 +42,15 @@ class PaymentProvider(models.Model):
         default=_DEFAULT_BASE_URL,
         required_if_provider='qr_mercantil',
     )
+    qr_mercantil_webhook_url = fields.Char(
+        string='Webhook URL (Callback)',
+        help=(
+            'URL que el banco llamará cuando se complete un pago QR. '
+            'Se envía como campo "callback" en cada llamada a generaQr. '
+            'Ejemplo: https://admin.aeisoftware.com/payment/qr_mercantil/webhook\n'
+            'Si se deja vacío se usa el dominio configurado en Ajustes → Parámetros técnicos → web.base.url'
+        ),
+    )
 
     # ── API helpers ──────────────────────────────────────────────────────────
 
@@ -156,7 +165,12 @@ class PaymentProvider(models.Model):
         base_url = (
             self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
         )
-        callback_url = f"{base_url}/payment/qr_mercantil/webhook"
+        # Use the explicitly configured webhook URL if set, otherwise auto-build
+        callback_url = (
+            self.qr_mercantil_webhook_url.strip()
+            if self.qr_mercantil_webhook_url
+            else f"{base_url}/payment/qr_mercantil/webhook"
+        )
 
         qr_image = ''
         qr_id = ''

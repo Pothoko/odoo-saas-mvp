@@ -16,11 +16,18 @@
                         <field name="qr_mercantil_username" string="Usuario"/>
                         <field name="qr_mercantil_password" string="Contraseña" password="True"/>
                     </group>
-                    <group string="Información">
-                        <div class="alert alert-info" role="alert">
-                            <strong>Webhook URL:</strong> configure este URL en el panel del banco para recibir notificaciones de pago:<br/>
-                            <code>/payment/qr_mercantil/webhook</code>
-                            <br/>(anteponé el dominio público de tu instancia Odoo)
+                    <group string="Webhook (Callback)">
+                        <field
+                            name="qr_mercantil_webhook_url"
+                            string="Webhook URL (Callback)"
+                            placeholder="https://admin.aeisoftware.com/payment/qr_mercantil/webhook"
+                        />
+                        <div class="text-muted small ps-2">
+                            Esta URL se env&#237;a al banco como campo <strong>callback</strong> en
+                            cada solicitud de generaci&#243;n de QR. El banco la llamar&#225; cuando
+                            el pago sea completado.<br/>
+                            Si se deja en blanco se usa el dominio de
+                            <code>web.base.url</code> + <code>/payment/qr_mercantil/webhook</code>.
                         </div>
                     </group>
                 </page>
