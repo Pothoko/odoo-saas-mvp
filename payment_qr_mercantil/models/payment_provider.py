@@ -220,6 +220,7 @@ class PaymentProvider(models.Model):
             })
 
         return {
+            'reference': reference,           # needed by qr_mercantil_redirect_form template
             'qr_image': qr_image,
             'qr_id': qr_id,
             'alias': reference,
