@@ -47,10 +47,17 @@ function startQRPolling() {
             const result = data.result || {};
             const state = result.state;
 
-            // In demo mode the server never confirms automatically — stop polling and
-            // let the user click "Simular Pago" to advance.
+            // In demo mode the server never confirms automatically — stop polling
+            // and instruct the user to click the "Simular Pago" button.
             if (result.is_demo) {
                 clearInterval(intervalId);
+                if (msgEl) {
+                    msgEl.innerHTML =
+                        '<span class="text-info">🔧 <strong>Modo Demo activo.</strong> Haz clic en <em>✅ Simular Pago (Demo)</em> para confirmar la transacción.</span>';
+                }
+                // Scroll the simulate button into view so the user sees it
+                const simulateBtn = document.getElementById("qr_mercantil_simulate_btn");
+                if (simulateBtn) simulateBtn.scrollIntoView({ behavior: "smooth", block: "center" });
                 return;
             }
 

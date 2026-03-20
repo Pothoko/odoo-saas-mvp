@@ -78,8 +78,6 @@ class QRMercantilController(http.Controller):
             _logger.exception("QR Mercantil: error procesando webhook")
             return {'status': 'error', 'message': 'processing error'}
 
-        return {'status': 'ok'}
-
     # ── Demo: simulate a payment without calling the bank ───────────────────
 
     @http.route(
@@ -90,7 +88,11 @@ class QRMercantilController(http.Controller):
         csrf=False,
     )
     def simulate_payment(self, reference=None, **kwargs):
-        """[Demo only] Mark a QR transaction as paid without a real bank call."""
+        """[Demo only] Mark a QR transaction as paid without a real bank call.
+
+        Follows the Odoo 18 payment_demo pattern (action_demo_set_done):
+        find the TX by reference, then call _set_done() directly.
+        """
         if not reference:
             return {'status': 'error', 'message': 'missing reference'}
 
@@ -115,17 +117,13 @@ class QRMercantilController(http.Controller):
                 'landing_route': tx.landing_route or '/payment/status',
             }
 
-        _logger.info(
-            "QR Mercantil [DEMO]: simulando pago para ref=%s", reference
-        )
-        notification_data = {
-            'alias': tx.qr_mercantil_alias or reference,
-            'monto': tx.amount,
-            'idQr': tx.qr_mercantil_qr_id or f'DEMO-{reference}',
-            'demo': True,
-        }
+        _logger.info("QR Mercantil [DEMO]: simulando pago para ref=%s", reference)
         try:
-            tx._handle_notification_data('qr_mercantil', notification_data)
+            # Direct _set_done() — no alias lookup needed (Odoo 18 demo pattern)
+            tx._set_done()
+            _logger.info(
+                "QR Mercantil [DEMO]: transacción %s marcada como DONE", reference
+            )
         except Exception:
             _logger.exception("QR Mercantil [DEMO]: error al simular pago ref=%s", reference)
             return {'status': 'error', 'message': 'simulation failed'}
