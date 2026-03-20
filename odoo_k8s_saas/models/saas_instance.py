@@ -98,6 +98,55 @@ class SaasInstance(models.Model):
         self.ensure_one()
         if self.state not in ("draft", "error"):
             raise UserError("Can only provision from Draft or Error state.")
+
+        # ── Idempotency guard: check if the K8s namespace already exists ──────
+        # This prevents the infinite loop where Odoo transaction rollbacks leave
+        # orphan K8s namespaces (the namespace is created outside the transaction).
+        try:
+            check_resp = requests.get(
+                f"{PORTAL_URL}/api/v1/instances/check/{self.tenant_id}",
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=10,
+            )
+            if check_resp.status_code == 200:
+                check_data = check_resp.json()
+                if not check_data.get("available", True):
+                    # Namespace already exists in K8s — don't re-create it,
+                    # just sync back the state so the BD reflects reality.
+                    logger.warning(
+                        "action_provision(%s): namespace already exists in K8s — "
+                        "skipping creation, resetting state to 'provisioning'.",
+                        self.tenant_id,
+                    )
+                    # Try to fetch current status from portal
+                    try:
+                        status_resp = requests.get(
+                            f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}",
+                            headers={"X-API-Key": PORTAL_KEY},
+                            timeout=10,
+                        )
+                        if status_resp.status_code == 200:
+                            status_data = status_resp.json()
+                            new_state = "ready" if status_data.get("status") == "ready" else "provisioning"
+                            self.write({
+                                "state": new_state,
+                                "url": status_data.get("url") or self.url,
+                                "namespace": status_data.get("namespace") or self.namespace,
+                                "error_msg": False,
+                            })
+                            return
+                    except Exception:
+                        pass
+                    # Fallback: mark as provisioning
+                    self.write({"state": "provisioning", "error_msg": False})
+                    return
+        except Exception as check_exc:
+            logger.warning(
+                "action_provision(%s): availability check failed (%s) — proceeding with creation.",
+                self.tenant_id, check_exc,
+            )
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             resp = requests.post(
                 f"{PORTAL_URL}/api/v1/instances",

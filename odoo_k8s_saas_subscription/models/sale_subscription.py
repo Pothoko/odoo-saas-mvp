@@ -197,27 +197,50 @@ class SaleSubscription(models.Model):
                         sub_code = (rec.name or "").lower().replace("/", "-")
                         tenant_id = rec._generate_saas_tenant_id(rec.partner_id, sub_code)
 
-                        plan = "starter"
-                        if rec.template_id:
-                            tmpl_name = (rec.template_id.name or "").lower()
-                            if "enterprise" in tmpl_name:
-                                plan = "enterprise"
-                            elif "pro" in tmpl_name:
-                                plan = "pro"
+                        # ── Idempotency guard: check if tenant_id already exists ──────────
+                        # When an Odoo transaction is rolled back AFTER the K8s namespace was
+                        # already created (external call), the saas.instance BD record is gone
+                        # but the K8s namespace remains. Without this guard the next write()
+                        # would create another namespace with the same tenant_id → infinite loop.
+                        existing = self.env["saas.instance"].search(
+                            [("tenant_id", "=", tenant_id)], limit=1
+                        )
+                        if existing:
+                            logger.warning(
+                                "write() subscription %s: tenant_id '%s' already has a "
+                                "saas.instance (id=%s, state=%s) — reusing it instead of "
+                                "creating a duplicate.",
+                                rec.name, tenant_id, existing.id, existing.state,
+                            )
+                            # Re-link it to this subscription so provisioning below works
+                            if not existing.subscription_id:
+                                existing.subscription_id = rec.id
+                            instances = existing
+                        else:
+                            plan = "starter"
+                            if rec.template_id:
+                                tmpl_name = (rec.template_id.name or "").lower()
+                                if "enterprise" in tmpl_name:
+                                    plan = "enterprise"
+                                elif "pro" in tmpl_name:
+                                    plan = "pro"
 
-                        storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
+                            storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
 
-                        inst = self.env["saas.instance"].create({
-                            "name": f"{rec.partner_id.name} — {rec.display_name}",
-                            "tenant_id": tenant_id,
-                            "plan": plan,
-                            "storage_gi": storage_map.get(plan, 10),
-                            "partner_id": rec.partner_id.id,
-                            "sale_order_id": rec.sale_order_id.id,
-                            "subscription_id": rec.id,
-                        })
-                        logger.info("Created saas.instance %s from subscription %s", inst.tenant_id, rec.name)
-                        instances = inst
+                            inst = self.env["saas.instance"].create({
+                                "name": f"{rec.partner_id.name} — {rec.display_name}",
+                                "tenant_id": tenant_id,
+                                "plan": plan,
+                                "storage_gi": storage_map.get(plan, 10),
+                                "partner_id": rec.partner_id.id,
+                                "sale_order_id": rec.sale_order_id.id,
+                                "subscription_id": rec.id,
+                            })
+                            logger.info(
+                                "Created saas.instance %s from subscription %s",
+                                inst.tenant_id, rec.name,
+                            )
+                            instances = inst
 
                 # Provision any draft/error instances
                 for inst in instances.filtered(lambda i: i.state in ("draft", "error")):
