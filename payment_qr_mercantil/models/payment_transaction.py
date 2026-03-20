@@ -96,7 +96,7 @@ class PaymentTransaction(models.Model):
             'alias': reference,
             'amount': amount,
             'currency': currency_name,
-            'is_demo': provider.qr_mercantil_demo_mode,
+            'is_demo': provider.state == 'test',
             'status_url': f"{base_url}/payment/qr_mercantil/status",
             'simulate_url': f"{base_url}/payment/qr_mercantil/simulate",
             'landing_route': processing_values.get('landing_route', '/payment/status'),

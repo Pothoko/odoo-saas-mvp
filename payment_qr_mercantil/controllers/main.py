@@ -43,7 +43,7 @@ class QRMercantilController(http.Controller):
             return request.redirect('/payment/status')
 
         base_url = request.httprequest.host_url.rstrip('/')
-        is_demo = tx.provider_id.qr_mercantil_demo_mode
+        is_demo = tx.provider_id.state == 'test'
 
         return request.render('payment_qr_mercantil.qr_mercantil_display', {
             'reference': reference,
@@ -103,12 +103,12 @@ class QRMercantilController(http.Controller):
         if not tx:
             return {'status': 'error', 'message': 'transaction not found'}
 
-        if not tx.provider_id.qr_mercantil_demo_mode:
+        if tx.provider_id.state != 'test':
             _logger.warning(
-                "QR Mercantil: intento de simular pago en proveedor sin demo mode (ref=%s)",
+                "QR Mercantil: intento de simular pago en proveedor sin test mode (ref=%s)",
                 reference,
             )
-            return {'status': 'error', 'message': 'demo mode not enabled'}
+            return {'status': 'error', 'message': 'test mode not enabled'}
 
         if tx.state in ('done', 'cancel', 'error'):
             return {
@@ -173,8 +173,8 @@ class QRMercantilController(http.Controller):
                 'landing_route': tx.landing_route or '/payment/status',
             }
 
-        # ── Demo mode: skip bank polling, just return current state ────────────
-        if tx.provider_id.qr_mercantil_demo_mode:
+        # ── Test mode: skip bank polling, just return current state ─────────────
+        if tx.provider_id.state == 'test':
             return {
                 'state': tx.state,
                 'reference': tx.reference,

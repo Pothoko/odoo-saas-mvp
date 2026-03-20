@@ -111,16 +111,9 @@ class PaymentProvider(models.Model):
             'Si se deja vacío se usa el dominio configurado en Ajustes → Parámetros técnicos → web.base.url'
         ),
     )
-    qr_mercantil_demo_mode = fields.Boolean(
-        string='Modo Demo (Test)',
-        default=False,
-        help=(
-            'Cuando está activo, NO se realiza ninguna llamada real al banco.\n'
-            'Se muestra un QR de ejemplo (marcado como DEMO) y aparece un botón '
-            '"Simular Pago" que confirma la transacción en Odoo sin cobrar nada.\n'
-            'Usar sólo en entornos de prueba/desarrollo.'
-        ),
-    )
+    # Modo demo/test: se controla con el campo nativo `state` de Odoo.
+    # Cuando state == 'test' el proveedor opera en modo demo (sin llamadas reales al banco).
+    # Ver: _qr_mercantil_generate_qr(), _qr_mercantil_get_status(), _qr_mercantil_get_token().
 
     # ── Odoo 18 payment method declaration ──────────────────────────────────
 
@@ -141,10 +134,10 @@ class PaymentProvider(models.Model):
         para que el caller sepa que no debe llamar a este método en demo mode.
         """
         self.ensure_one()
-        if self.qr_mercantil_demo_mode:
+        if self.state == 'test':
             raise ValidationError(
-                _("QR Mercantil [DEMO]: _qr_mercantil_get_token() no debe llamarse "
-                  "en modo demo. Revisa el código que invocó este método.")
+                _("QR Mercantil [TEST]: _qr_mercantil_get_token() no debe llamarse "
+                  "en modo test. Revisa el código que invocó este método.")
             )
         now = time.time()
 
@@ -260,16 +253,17 @@ class PaymentProvider(models.Model):
         """
         self.ensure_one()
 
-        # ── Demo mode: return a fake QR without any bank calls ────────────────
-        if self.qr_mercantil_demo_mode:
+        # ── Test mode: return a fake QR without any bank calls ─────────────────
+        # Odoo's native `state == 'test'` replaces the former qr_mercantil_demo_mode field.
+        if self.state == 'test':
             _logger.info(
-                "QR Mercantil [DEMO]: generando QR ficticio para alias=%s amount=%s",
+                "QR Mercantil [TEST]: generando QR ficticio para alias=%s amount=%s",
                 alias, amount,
             )
             return {
                 'objeto': {
                     'imagenQr': _DEMO_QR_B64,
-                    'idQr': f'DEMO-{alias}',
+                    'idQr': f'TEST-{alias}',
                 }
             }
 
@@ -330,12 +324,12 @@ class PaymentProvider(models.Model):
         En modo demo devuelve un payload ficticio sin contactar al banco.
         """
         self.ensure_one()
-        if self.qr_mercantil_demo_mode:
+        if self.state == 'test':
             _logger.info(
-                "QR Mercantil [DEMO]: _qr_mercantil_get_status() "
-                "llamado en modo demo — devolviendo estado ficticio para alias=%s", alias,
+                "QR Mercantil [TEST]: _qr_mercantil_get_status() "
+                "llamado en modo test — devolviendo estado ficticio para alias=%s", alias,
             )
-            return {'objeto': {'estadoActual': 'PENDIENTE', 'demo': True}}
+            return {'objeto': {'estadoActual': 'PENDIENTE', 'test': True}}
         token = self._qr_mercantil_get_token()
         url = f"{self.qr_mercantil_base_url}/api/v1/estadoTransaccion"
         try:
