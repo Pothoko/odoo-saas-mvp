@@ -16,6 +16,14 @@
                         <field name="qr_mercantil_username" string="Usuario"/>
                         <field name="qr_mercantil_password" string="Contraseña" password="True"/>
                     </group>
+                    <group string="Modo de operación">
+                        <field name="qr_mercantil_demo_mode" string="Modo Demo (Test)"
+                               widget="boolean_toggle"/>
+                        <div class="text-muted small ps-2" invisible="qr_mercantil_demo_mode == False">
+                            ⚠️ <strong>Demo activo</strong>: Los QR generados son ficticios
+                            y aparece un botón «Simular Pago» en el checkout. No usar en producción.
+                        </div>
+                    </group>
                     <group string="Webhook (Callback)">
                         <field
                             name="qr_mercantil_webhook_url"

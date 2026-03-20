@@ -1,13 +1,61 @@
+import base64
 import logging
+import threading
+import time
 import requests
 from datetime import datetime, timedelta
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
+# Per-process token cache lock (protects against duplicate fetches within one worker)
+_TOKEN_LOCK = threading.Lock()
+# Token refresh margin: refresh 5 minutes before actual expiry
+_TOKEN_REFRESH_MARGIN_S = 300
+# Assume token lives 55 minutes if the bank doesn't advertise expiry
+_TOKEN_TTL_S = 55 * 60
+
 _DEFAULT_BASE_URL = 'https://sip.mc4.com.bo:8443'
+
+# Fake QR image used in demo mode — a minimal SVG QR-looking grid encoded as base64 PNG.
+# In practice we just render a labelled SVG so it's obvious it's a demo.
+_DEMO_QR_SVG = """\
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white" stroke="#ccc" stroke-width="1"/>
+  <!-- top-left anchor -->
+  <rect x="10" y="10" width="50" height="50" fill="none" stroke="black" stroke-width="6"/>
+  <rect x="22" y="22" width="26" height="26" fill="black"/>
+  <!-- top-right anchor -->
+  <rect x="140" y="10" width="50" height="50" fill="none" stroke="black" stroke-width="6"/>
+  <rect x="152" y="22" width="26" height="26" fill="black"/>
+  <!-- bottom-left anchor -->
+  <rect x="10" y="140" width="50" height="50" fill="none" stroke="black" stroke-width="6"/>
+  <rect x="22" y="152" width="26" height="26" fill="black"/>
+  <!-- data dots -->
+  <rect x="72" y="10" width="8" height="8" fill="black"/>
+  <rect x="84" y="10" width="8" height="8" fill="black"/>
+  <rect x="72" y="22" width="8" height="8" fill="black"/>
+  <rect x="84" y="84" width="8" height="8" fill="black"/>
+  <rect x="96" y="84" width="8" height="8" fill="black"/>
+  <rect x="108" y="72" width="8" height="8" fill="black"/>
+  <rect x="120" y="60" width="8" height="8" fill="black"/>
+  <rect x="132" y="96" width="8" height="8" fill="black"/>
+  <rect x="72" y="108" width="8" height="8" fill="black"/>
+  <rect x="96" y="120" width="8" height="8" fill="black"/>
+  <rect x="108" y="132" width="8" height="8" fill="black"/>
+  <rect x="120" y="144" width="8" height="8" fill="black"/>
+  <rect x="132" y="156" width="8" height="8" fill="black"/>
+  <rect x="144" y="168" width="8" height="8" fill="black"/>
+  <rect x="156" y="132" width="8" height="8" fill="black"/>
+  <rect x="168" y="144" width="8" height="8" fill="black"/>
+  <!-- DEMO label -->
+  <rect x="60" y="80" width="80" height="40" rx="4" fill="#ff5722" opacity="0.9"/>
+  <text x="100" y="107" font-family="Arial,sans-serif" font-size="18" font-weight="bold"
+        fill="white" text-anchor="middle">DEMO</text>
+</svg>"""
+_DEMO_QR_B64 = base64.b64encode(_DEMO_QR_SVG.encode()).decode()
 
 
 class PaymentProvider(models.Model):
@@ -42,6 +90,18 @@ class PaymentProvider(models.Model):
         default=_DEFAULT_BASE_URL,
         required_if_provider='qr_mercantil',
     )
+
+    # ── Token cache (shared across workers via DB) ────────────────────────────
+    qr_mercantil_token_cache = fields.Char(
+        string='JWT Token (caché)',
+        copy=False,
+        help='Caché interno del JWT. No editar manualmente.',
+    )
+    qr_mercantil_token_expires = fields.Float(
+        string='Token expira (epoch)',
+        copy=False,
+        help='Timestamp UNIX en que el token expira.',
+    )
     qr_mercantil_webhook_url = fields.Char(
         string='Webhook URL (Callback)',
         help=(
@@ -49,6 +109,16 @@ class PaymentProvider(models.Model):
             'Se envía como campo "callback" en cada llamada a generaQr. '
             'Ejemplo: https://admin.aeisoftware.com/payment/qr_mercantil/webhook\n'
             'Si se deja vacío se usa el dominio configurado en Ajustes → Parámetros técnicos → web.base.url'
+        ),
+    )
+    qr_mercantil_demo_mode = fields.Boolean(
+        string='Modo Demo (Test)',
+        default=False,
+        help=(
+            'Cuando está activo, NO se realiza ninguna llamada real al banco.\n'
+            'Se muestra un QR de ejemplo (marcado como DEMO) y aparece un botón '
+            '"Simular Pago" que confirma la transacción en Odoo sin cobrar nada.\n'
+            'Usar sólo en entornos de prueba/desarrollo.'
         ),
     )
 
@@ -62,7 +132,60 @@ class PaymentProvider(models.Model):
     # ── API helpers ──────────────────────────────────────────────────────────
 
     def _qr_mercantil_get_token(self):
-        """Obtiene un JWT token del endpoint de autenticación."""
+        """Obtiene (o devuelve cacheado) un JWT token del banco.
+
+        El token se guarda en campos DB para compartirlo entre workers Odoo.
+        Un lock de threading evita solicitudes duplicadas dentro del mismo proceso.
+        """
+        self.ensure_one()
+        now = time.time()
+
+        # 1. Fast path: check DB cache (shared across all workers)
+        # Re-read directly from DB to avoid ORM cache staleness
+        self.env.cr.execute(
+            "SELECT qr_mercantil_token_cache, qr_mercantil_token_expires "
+            "FROM payment_provider WHERE id = %s",
+            (self.id,),
+        )
+        row = self.env.cr.fetchone()
+        cached_token = row[0] if row else None
+        cached_expires = row[1] if row else 0.0
+
+        if cached_token and cached_expires and now < (cached_expires - _TOKEN_REFRESH_MARGIN_S):
+            _logger.debug(
+                "QR Mercantil: usando token cacheado (expira en %.0fs)",
+                cached_expires - now,
+            )
+            return cached_token
+
+        # 2. Slow path: fetch a new token (serialise within this process)
+        with _TOKEN_LOCK:
+            # Re-check after acquiring lock (another thread may have refreshed)
+            self.env.cr.execute(
+                "SELECT qr_mercantil_token_cache, qr_mercantil_token_expires "
+                "FROM payment_provider WHERE id = %s",
+                (self.id,),
+            )
+            row = self.env.cr.fetchone()
+            cached_token = row[0] if row else None
+            cached_expires = row[1] if row else 0.0
+            now = time.time()
+            if cached_token and cached_expires and now < (cached_expires - _TOKEN_REFRESH_MARGIN_S):
+                return cached_token
+
+            token = self._qr_mercantil_fetch_token()
+            expires_at = now + _TOKEN_TTL_S
+            # Save to DB so other workers can use it
+            self.env.cr.execute(
+                "UPDATE payment_provider "
+                "SET qr_mercantil_token_cache = %s, qr_mercantil_token_expires = %s "
+                "WHERE id = %s",
+                (token, expires_at, self.id),
+            )
+            return token
+
+    def _qr_mercantil_fetch_token(self):
+        """Hace la llamada HTTP real al banco para obtener un token nuevo."""
         self.ensure_one()
         url = f"{self.qr_mercantil_base_url}/autenticacion/v1/generarToken"
         _logger.info(
@@ -92,13 +215,11 @@ class PaymentProvider(models.Model):
             )
             resp.raise_for_status()
             data = resp.json()
-            # Handle {"token":"..."} or raw JWT string
             if isinstance(data, dict):
                 token = (
                     data.get('token')
                     or data.get('accessToken')
                     or data.get('access_token')
-                    # MC4: {"codigo":"OK","objeto":{"token":"eyJ..."}}
                     or (data.get('objeto') or {}).get('token')
                     or (data.get('objeto') or {}).get('accessToken')
                     or ''
@@ -125,8 +246,25 @@ class PaymentProvider(models.Model):
     def _qr_mercantil_generate_qr(
         self, alias, amount, currency_name, description, callback_url, due_date=None
     ):
-        """Genera un QR en el banco y retorna el payload de respuesta."""
+        """Genera un QR en el banco y retorna el payload de respuesta.
+
+        En modo demo devuelve un payload ficticio sin llamar al banco.
+        """
         self.ensure_one()
+
+        # ── Demo mode: return a fake QR without any bank calls ────────────────
+        if self.qr_mercantil_demo_mode:
+            _logger.info(
+                "QR Mercantil [DEMO]: generando QR ficticio para alias=%s amount=%s",
+                alias, amount,
+            )
+            return {
+                'objeto': {
+                    'imagenQr': _DEMO_QR_B64,
+                    'idQr': f'DEMO-{alias}',
+                }
+            }
+
         token = self._qr_mercantil_get_token()
         if not due_date:
             due_date = (datetime.now() + timedelta(days=1)).strftime('%d/%m/%Y')

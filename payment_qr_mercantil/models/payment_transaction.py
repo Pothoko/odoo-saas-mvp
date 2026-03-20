@@ -12,6 +12,11 @@ class PaymentTransaction(models.Model):
     qr_mercantil_alias = fields.Char(string='QR Alias')
     qr_mercantil_image = fields.Text(string='QR Image (base64)')
     qr_mercantil_qr_id = fields.Char(string='QR ID Banco')
+    qr_mercantil_last_polled = fields.Datetime(
+        string='Último polling banco',
+        copy=False,
+        help='Timestamp del último polling al banco (throttle cross-worker).',
+    )
 
     # ── Odoo 18 payment flow: rendering values for redirect form ─────────────
 
@@ -91,7 +96,9 @@ class PaymentTransaction(models.Model):
             'alias': reference,
             'amount': amount,
             'currency': currency_name,
+            'is_demo': provider.qr_mercantil_demo_mode,
             'status_url': f"{base_url}/payment/qr_mercantil/status",
+            'simulate_url': f"{base_url}/payment/qr_mercantil/simulate",
             'landing_route': processing_values.get('landing_route', '/payment/status'),
         }
 

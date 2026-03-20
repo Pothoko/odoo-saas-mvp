@@ -1,7 +1,8 @@
 /** @odoo-module **/
 /**
- * QR Mercantil — frontend polling
+ * QR Mercantil — frontend polling + demo simulation
  * Checks tx state every 3s and redirects on success/failure.
+ * In demo mode a "Simular Pago" button is wired to /payment/qr_mercantil/simulate.
  */
 
 import { browser } from "@web/core/browser/browser";
@@ -23,7 +24,7 @@ function startQRPolling() {
     if (!reference || !statusUrl) return;
 
     let attempts = 0;
-    const MAX_ATTEMPTS = 200; // 200 × 3s = 10 minutes timeout
+    const MAX_ATTEMPTS = 200; // 200 x 3s = 10 minutes timeout
 
     const intervalId = setInterval(async () => {
         attempts++;
@@ -31,7 +32,7 @@ function startQRPolling() {
             clearInterval(intervalId);
             if (msgEl) {
                 msgEl.innerHTML =
-                    '<span class="text-warning">⚠️ Tiempo de espera agotado. Si ya pagaste, el pedido se confirmará automáticamente.</span>';
+                    '<span class="text-warning">Tiempo de espera agotado. Si ya pagaste, el pedido se confirmara automaticamente.</span>';
             }
             return;
         }
@@ -43,13 +44,21 @@ function startQRPolling() {
                 body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: { reference } }),
             });
             const data = await resp.json();
-            const state = (data.result || {}).state;
+            const result = data.result || {};
+            const state = result.state;
+
+            // In demo mode the server never confirms automatically — stop polling and
+            // let the user click "Simular Pago" to advance.
+            if (result.is_demo) {
+                clearInterval(intervalId);
+                return;
+            }
 
             if (state === "done") {
                 clearInterval(intervalId);
                 if (msgEl) {
                     msgEl.innerHTML =
-                        '<span class="text-success">✅ ¡Pago confirmado! Redirigiendo…</span>';
+                        '<span class="text-success">Pago confirmado! Redirigiendo...</span>';
                 }
                 browser.setTimeout(() => {
                     window.location.href = landingRoute;
@@ -58,14 +67,68 @@ function startQRPolling() {
                 clearInterval(intervalId);
                 if (msgEl) {
                     msgEl.innerHTML =
-                        '<span class="text-danger">❌ Pago cancelado o fallido.</span>';
+                        '<span class="text-danger">Pago cancelado o fallido.</span>';
                 }
             }
         } catch (e) {
-            // Network error — keep polling silently
+            // Network error - keep polling silently
             console.debug("QR Mercantil poll error:", e);
         }
     }, POLL_INTERVAL_MS);
+
+    // -- Demo mode: wire up "Simular Pago" button ----------------------------
+    const simulateBtn = document.getElementById("qr_mercantil_simulate_btn");
+    const simulateUrlInput = document.getElementById("qr_mercantil_simulate_url");
+
+    if (simulateBtn && simulateUrlInput) {
+        const simulateUrl = simulateUrlInput.value;
+
+        simulateBtn.addEventListener("click", async () => {
+            simulateBtn.disabled = true;
+            simulateBtn.textContent = "Procesando...";
+
+            try {
+                const resp = await fetch(simulateUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        jsonrpc: "2.0",
+                        method: "call",
+                        params: { reference },
+                    }),
+                });
+                const data = await resp.json();
+                const result = data.result || {};
+
+                if (result.status === "ok" || result.status === "already_done") {
+                    clearInterval(intervalId);
+                    if (msgEl) {
+                        msgEl.innerHTML =
+                            '<span class="text-success">Pago simulado correctamente. Redirigiendo...</span>';
+                    }
+                    browser.setTimeout(() => {
+                        window.location.href = result.landing_route || landingRoute;
+                    }, 1200);
+                } else {
+                    simulateBtn.disabled = false;
+                    simulateBtn.textContent = "Simular Pago (Demo)";
+                    const errMsg = result.message || "error desconocido";
+                    if (msgEl) {
+                        msgEl.innerHTML =
+                            '<span class="text-danger">Error al simular: ' + errMsg + '</span>';
+                    }
+                }
+            } catch (e) {
+                console.error("QR Mercantil simulate error:", e);
+                simulateBtn.disabled = false;
+                simulateBtn.textContent = "Simular Pago (Demo)";
+                if (msgEl) {
+                    msgEl.innerHTML =
+                        '<span class="text-danger">Error de red al simular pago.</span>';
+                }
+            }
+        });
+    }
 }
 
 // Start when DOM is ready
