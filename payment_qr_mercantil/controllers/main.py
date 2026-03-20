@@ -119,10 +119,14 @@ class QRMercantilController(http.Controller):
 
         _logger.info("QR Mercantil [DEMO]: simulando pago para ref=%s", reference)
         try:
-            # Direct _set_done() — no alias lookup needed (Odoo 18 demo pattern)
+            # _set_done() marks the TX as done.
+            # _post_process() then confirms the SO, creates+validates the invoice,
+            # registers the accounting payment, and reconciles it — which triggers
+            # account.move._compute_payment_state() → SaaS provisioning.
             tx._set_done()
+            tx._post_process()
             _logger.info(
-                "QR Mercantil [DEMO]: transacción %s marcada como DONE", reference
+                "QR Mercantil [DEMO]: transacción %s marcada como DONE y post-procesada", reference
             )
         except Exception:
             _logger.exception("QR Mercantil [DEMO]: error al simular pago ref=%s", reference)
