@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Portal users can only read sale.subscription records that belong
+        to their own partner (or a child of it).  Without this rule, Odoo's
+        ORM either grants access to ALL records (if no rules exist for the
+        group) or denies access entirely.
+    -->
+    <record id="sale_subscription_rule_portal" model="ir.rule">
+        <field name="name">Subscription: portal users see only their own</field>
+        <field name="model_id" ref="subscription_oca.model_sale_subscription"/>
+        <field name="domain_force">[('partner_id', 'child_of', [user.partner_id.id])]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+</odoo>
