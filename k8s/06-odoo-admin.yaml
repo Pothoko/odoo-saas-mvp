@@ -28,7 +28,7 @@ spec:
 
 ---
 # ${DB_PASSWORD} and ${ADMIN_PASSWD} are substituted at startup by the
-# render-config init container using envsubst.
+# render-config init container using sed.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -40,8 +40,8 @@ data:
     db_host = postgres.aeisoftware.svc.cluster.local
     db_port = 5432
     db_user = odoo
-    db_password = ${DB_PASSWORD}
-    admin_passwd = ${ADMIN_PASSWD}
+    db_password = REPLACE_DB_PASSWORD
+    admin_passwd = REPLACE_ADMIN_PASSWD
     dbfilter = ^admin$
     list_db = True
     addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
@@ -73,6 +73,7 @@ spec:
         # 1. Clone the SaaS addons from GitHub
         - name: copy-addon
           image: alpine/git
+          imagePullPolicy: Always
           command:
             - sh
             - -c
@@ -92,15 +93,17 @@ spec:
             - name: odoo-addons
               mountPath: /mnt/extra-addons
 
-        # 2. Render odoo.conf from template, injecting real secret values
+        # 2. Render odoo.conf: replace REPLACE_* placeholders with real secret values
+        # Uses sed with literal placeholders (no ${} in template) to avoid YAML/shell quoting issues.
         - name: render-config
           image: alpine:3.19
           command:
             - sh
             - -c
             - |
-              apk add --no-cache gettext >/dev/null 2>&1
-              envsubst < /tmpl/odoo.conf.tmpl > /etc/odoo/odoo.conf
+              sed -e "s|REPLACE_DB_PASSWORD|${DB_PASSWORD}|g" \
+                  -e "s|REPLACE_ADMIN_PASSWD|${ADMIN_PASSWD}|g" \
+                  /tmpl/odoo.conf.tmpl > /etc/odoo/odoo.conf
               echo "odoo.conf rendered:"
               cat /etc/odoo/odoo.conf
           env:
@@ -123,7 +126,8 @@ spec:
       containers:
         - name: odoo
           image: odoo:18
-          args: ["-u", "payment_qr_mercantil"]
+          # No --update flag: run manually with:
+          # kubectl exec -n odoo-admin deploy/odoo-admin -- odoo -u <module> --stop-after-init
           ports:
             - containerPort: 8069
             - containerPort: 8072
