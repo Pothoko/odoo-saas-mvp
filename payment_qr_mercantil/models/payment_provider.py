@@ -111,6 +111,18 @@ class PaymentProvider(models.Model):
             'Si se deja vacío se usa el dominio configurado en Ajustes → Parámetros técnicos → web.base.url'
         ),
     )
+    # DEPRECATED – mantenido solo para que la vista vieja en la BD pueda validarse
+    # durante el arranque con -u. El campo real ya no se usa: el modo demo se
+    # controla con el campo nativo `state` ('test' = demo, 'enabled' = producción).
+    # TODO: eliminar este campo en el siguiente deploy una vez que -u haya
+    # reemplazado la vista en la BD.
+    qr_mercantil_demo_mode = fields.Boolean(
+        string='Modo Demo (deprecated)',
+        deprecated=True,
+        copy=False,
+        help='Campo obsoleto. El modo demo se controla con el campo state (test/enabled).',
+    )
+
     # Modo demo/test: se controla con el campo nativo `state` de Odoo.
     # Cuando state == 'test' el proveedor opera en modo demo (sin llamadas reales al banco).
     # Ver: _qr_mercantil_generate_qr(), _qr_mercantil_get_status(), _qr_mercantil_get_token().
