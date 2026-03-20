@@ -13,6 +13,18 @@
             <field name="active" eval="True"/>
             <field name="sequence">70</field>
         </record>
+
+        <!-- account.payment.method is the ACCOUNTING-layer record (different from
+             payment.method).  It is required so that account.payment.method.line
+             can be created on the bank journal, which is what _create_payment()
+             uses when it looks up payment_method_line_id.
+             Without this record the CRON _cron_post_process raises:
+             "Por favor, defina un método de pago en su pago." -->
+        <record id="account_payment_method_qr_mercantil_inbound" model="account.payment.method">
+            <field name="name">QR Mercantil</field>
+            <field name="code">qr_mercantil</field>
+            <field name="payment_type">inbound</field>
+        </record>
     </data>
 
     <!-- Provider updated on every -u (noupdate=0) so payment_method_ids is
