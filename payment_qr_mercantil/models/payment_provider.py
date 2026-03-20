@@ -136,8 +136,16 @@ class PaymentProvider(models.Model):
 
         El token se guarda en campos DB para compartirlo entre workers Odoo.
         Un lock de threading evita solicitudes duplicadas dentro del mismo proceso.
+
+        En modo demo nunca se autentica con el banco — lanza un error explícito
+        para que el caller sepa que no debe llamar a este método en demo mode.
         """
         self.ensure_one()
+        if self.qr_mercantil_demo_mode:
+            raise ValidationError(
+                _("QR Mercantil [DEMO]: _qr_mercantil_get_token() no debe llamarse "
+                  "en modo demo. Revisa el código que invocó este método.")
+            )
         now = time.time()
 
         # 1. Fast path: check DB cache (shared across all workers)
@@ -317,8 +325,17 @@ class PaymentProvider(models.Model):
             )
 
     def _qr_mercantil_get_status(self, alias):
-        """Consulta el estado de una transacción por alias."""
+        """Consulta el estado de una transacción por alias.
+
+        En modo demo devuelve un payload ficticio sin contactar al banco.
+        """
         self.ensure_one()
+        if self.qr_mercantil_demo_mode:
+            _logger.info(
+                "QR Mercantil [DEMO]: _qr_mercantil_get_status() "
+                "llamado en modo demo — devolviendo estado ficticio para alias=%s", alias,
+            )
+            return {'objeto': {'estadoActual': 'PENDIENTE', 'demo': True}}
         token = self._qr_mercantil_get_token()
         url = f"{self.qr_mercantil_base_url}/api/v1/estadoTransaccion"
         try:
