@@ -119,16 +119,19 @@ class QRMercantilController(http.Controller):
 
         _logger.info("QR Mercantil [DEMO]: simulando pago para ref=%s", reference)
         try:
-            # In Odoo 18, _set_done() internally enqueues _post_process() via the
-            # payment post-processing mechanism. Calling _post_process() explicitly
-            # after _set_done() would run it twice, which can:
-            #   - Confirm the SO twice (generates duplicate-confirm log errors)
-            #   - Attempt to create+validate the invoice a second time (raises exceptions)
-            #   - Trigger SaaS provisioning twice → duplicate saas.instance records
-            # Therefore: call ONLY _set_done() and let Odoo handle post-processing.
+            # _set_done() marks the TX as done.
+            # _post_process() then confirms the SO, creates+validates the invoice,
+            # registers the accounting payment, and reconciles it — which triggers
+            # account.move._compute_payment_state() → SaaS provisioning.
+            #
+            # NOTE: In Odoo 18, _set_done() *may* enqueue _post_process() via the
+            # payment post-processing cron, but in a simulated/demo payment flow
+            # the cron may not run promptly (or at all). Calling _post_process()
+            # explicitly ensures the SO is confirmed synchronously here.
             tx._set_done()
+            tx._post_process()
             _logger.info(
-                "QR Mercantil [DEMO]: transacción %s marcada como DONE (post-process encolado automáticamente)", reference
+                "QR Mercantil [DEMO]: transacción %s marcada como DONE y post-procesada", reference
             )
         except Exception:
             _logger.exception("QR Mercantil [DEMO]: error al simular pago ref=%s", reference)
