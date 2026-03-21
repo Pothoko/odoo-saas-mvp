@@ -30,9 +30,16 @@ class PortalSubscription(CustomerPortal):
 
     # ── helpers ─────────────────────────────────────────────────────
     def _subscription_get_page_view_values(self, subscription, access_token, **kwargs):
+        # Fetch linked SaaS instances (use sudo because portal users
+        # may not have direct read access on saas.instance)
+        saas_instances = request.env["saas.instance"].sudo().search([
+            ("subscription_id", "=", subscription.id),
+            ("state", "not in", ["deleted"]),
+        ])
         values = {
             "page_name": "Subscriptions",
             "subscription": subscription,
+            "saas_instances": saas_instances,
         }
         return self._get_page_view_values(
             subscription,
