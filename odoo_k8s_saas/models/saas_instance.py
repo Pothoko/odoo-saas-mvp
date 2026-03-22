@@ -5,6 +5,7 @@ Tracks SaaS tenant instances as Odoo records.
 Calls the portal API to provision / deprovision.
 No dependency on sale, contract, or subscription modules.
 """
+import json
 import logging
 import os
 import requests
@@ -52,6 +53,22 @@ class SaasInstance(models.Model):
     sale_order_id = fields.Many2one(
         "sale.order", string="Sale Order", ondelete="set null",
         help="Sale order that triggered this instance's creation.",
+    )
+
+    # ── config / logs / addons ─────────────────────────────────────────────
+    odoo_conf = fields.Text(
+        string="odoo.conf",
+        help="Current odoo.conf content (fetched from the running instance).",
+    )
+    pod_logs = fields.Text(
+        string="Pod Logs",
+        help="Recent container logs (fetched on demand from K8s).",
+    )
+    addons_repos_json = fields.Text(
+        string="Addon Repositories",
+        default="[]",
+        help='JSON array of {"url": "...", "branch": "..."} objects. '
+             'These repos are git-cloned into the tenant pod on provision.',
     )
 
     # ── actions ───────────────────────────────────────────────────────────────
@@ -148,13 +165,22 @@ class SaasInstance(models.Model):
         # ─────────────────────────────────────────────────────────────────────
 
         try:
+            body = {
+                "tenant_id": self.tenant_id,
+                "plan": self.plan,
+                "storage_gi": self.storage_gi,
+            }
+            # Include addon repos if configured
+            if self.addons_repos_json:
+                try:
+                    repos = json.loads(self.addons_repos_json)
+                    if repos:
+                        body["addons_repos"] = repos
+                except (json.JSONDecodeError, TypeError):
+                    pass
             resp = requests.post(
                 f"{PORTAL_URL}/api/v1/instances",
-                json={
-                    "tenant_id": self.tenant_id,
-                    "plan": self.plan,
-                    "storage_gi": self.storage_gi,
-                },
+                json=body,
                 headers={"X-API-Key": PORTAL_KEY},
                 timeout=30,
             )
@@ -256,3 +282,98 @@ class SaasInstance(models.Model):
                 "url": self.url,
                 "target": "new",
             }
+
+    # ── config / logs / addons actions ─────────────────────────────────────
+
+    def action_fetch_config(self):
+        """GET /api/v1/instances/{tenant_id}/config → populate odoo_conf."""
+        self.ensure_one()
+        if self.state not in ("ready", "provisioning"):
+            raise UserError(_("Instance must be Ready or Provisioning to fetch config."))
+        try:
+            resp = requests.get(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/config",
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            self.odoo_conf = data.get("odoo_conf", "")
+        except Exception as exc:
+            raise UserError(_("Failed to fetch config: %s") % exc) from exc
+
+    def action_save_config(self):
+        """PUT /api/v1/instances/{tenant_id}/config → overwrite odoo.conf."""
+        self.ensure_one()
+        if self.state != "ready":
+            raise UserError(_("Instance must be Ready to save config."))
+        if not self.odoo_conf:
+            raise UserError(_("No config content to save. Fetch it first."))
+        try:
+            resp = requests.put(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/config",
+                json={"odoo_conf": self.odoo_conf},
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Config Saved ✓"),
+                    "message": _("odoo.conf updated and Odoo pod restarted."),
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+        except Exception as exc:
+            raise UserError(_("Failed to save config: %s") % exc) from exc
+
+    def action_fetch_logs(self):
+        """GET /api/v1/instances/{tenant_id}/logs → populate pod_logs."""
+        self.ensure_one()
+        if self.state in ("draft", "deleted"):
+            raise UserError(_("No logs available for a %s instance.") % self.state)
+        try:
+            resp = requests.get(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/logs",
+                params={"lines": 200},
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            self.pod_logs = data.get("logs", "")
+        except Exception as exc:
+            raise UserError(_("Failed to fetch logs: %s") % exc) from exc
+
+    def action_patch_addons(self):
+        """PATCH /api/v1/instances/{tenant_id}/config with addons_repos."""
+        self.ensure_one()
+        if self.state != "ready":
+            raise UserError(_("Instance must be Ready to sync addons."))
+        try:
+            repos = json.loads(self.addons_repos_json or "[]")
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise UserError(_("Invalid JSON in Addon Repositories field.")) from exc
+        try:
+            resp = requests.patch(
+                f"{PORTAL_URL}/api/v1/instances/{self.tenant_id}/config",
+                json={"addons_repos": repos},
+                headers={"X-API-Key": PORTAL_KEY},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Addons Synced ✓"),
+                    "message": _("Addon repos updated. Pod will restart."),
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+        except Exception as exc:
+            raise UserError(_("Failed to sync addons: %s") % exc) from exc
