@@ -227,3 +227,20 @@ spec:
                 name: odoo-admin-svc
                 port:
                   number: 8069
+    - host: www.aeisoftware.com
+      http:
+        paths:
+          - path: /websocket
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo-admin-svc
+                port:
+                  number: 8072
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo-admin-svc
+                port:
+                  number: 8069
