@@ -179,10 +179,10 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                         {
                             "name": "odoo-init",
                             "image": ODOO_IMAGE,
+                            "command": ["/bin/sh", "-c"],
                             "args": [
-                                "--config=/etc/odoo/odoo.conf",
-                                "--init=base",
-                                "--stop-after-init",
+                                "odoo --config=/etc/odoo/odoo.conf --init=base --stop-after-init && "
+                                "echo \"env.ref('base.user_admin').write({'password': '${APP_ADMIN_PASSWORD}'}); env.cr.commit()\" | odoo shell --config=/etc/odoo/odoo.conf"
                             ],
                             "env": _env,
                             "volumeMounts": _vol_mounts,
