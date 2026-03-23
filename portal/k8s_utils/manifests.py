@@ -275,12 +275,19 @@ def ingress_manifest(tenant_id: str) -> dict[str, Any]:
     }
 
 
-def all_manifests(tenant_id: str, db_password: str, admin_password: str, storage_gi: int = 10, addons_repos: list = None) -> list[dict]:
+def all_manifests(
+    tenant_id: str,
+    db_password: str,
+    admin_password: str,
+    app_admin_password: str,
+    storage_gi: int = 10,
+    addons_repos: list | None = None,
+) -> list[dict]:
     """Return all manifests in apply-order."""
     return [
         namespace_manifest(tenant_id),
         pvc_manifest(tenant_id, storage_gi),
-        secret_manifest(tenant_id, db_password, admin_password),
+        secret_manifest(tenant_id, db_password, admin_password, app_admin_password),
         configmap_manifest(tenant_id, db_password, admin_password, addons_repos),
         deployment_manifest(tenant_id),
         service_manifest(tenant_id),
