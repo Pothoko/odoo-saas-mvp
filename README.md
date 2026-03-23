@@ -341,6 +341,8 @@ Acceso en `https://admin.aeisoftware.com`
 Los addons proveen:
 - **App SaaS** en el menú principal (kanban de instancias)
 - Estados: `draft → provisioning → running → suspended → terminated`
-- Botones Suspender / Reanudar con scale-down/up en K8s
+- Edición On-The-Fly de `odoo.conf` y Repositorios Extra (vía K8s ConfigMap)
+- Extracción de **Logs** del pod directamente desde la UI de Odoo
+- Botones Suspender / Reanudar con scale-down/up en K8s a 0 o 1 réplicas
 - Pago QR nativo integrado (flujo SO → Factura → QR Mercantil → SaaS provisioning)
-- Cron jobs: sync de estado cada 2 min, suspensión de instancias vencidas diariamente
+- Cron jobs: sync de estado e inquilinos cada 2 min, suspensión de instancias vencidas diariamente
