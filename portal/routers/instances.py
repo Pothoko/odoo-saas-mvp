@@ -46,6 +46,7 @@ class InstanceResponse(BaseModel):
     namespace: str
     url: str
     status: str
+    user_count: int = 0
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
@@ -141,11 +142,16 @@ def get_instance(tenant_id: str):
         raise HTTPException(status_code=404, detail="Instance not found")
 
     status = "ready" if info["ready"] else "provisioning"
+    user_count = 0
+    if status == "ready":
+        user_count = _get_user_count(tenant_id)
+        
     return InstanceResponse(
         tenant_id=tenant_id,
         namespace=namespace,
         url=f"https://{tenant_id}.{BASE_DOMAIN}",
         status=status,
+        user_count=user_count,
     )
 
 
@@ -166,6 +172,28 @@ def delete_instance(tenant_id: str):
         _drop_pg_user(pg_user, db_name)
     except Exception as exc:
         logger.warning("Could not drop Postgres user %s: %s", pg_user, exc)
+
+@router.post("/{tenant_id}/stop")
+def stop_instance(tenant_id: str):
+    """Suspend a tenant instance (scale to 0)."""
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import scale_deployment
+    try:
+        scale_deployment(namespace, "odoo", 0)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"status": "suspended"}
+
+@router.post("/{tenant_id}/start")
+def start_instance(tenant_id: str):
+    """Resume a tenant instance (scale to 1)."""
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import scale_deployment
+    try:
+        scale_deployment(namespace, "odoo", 1)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"status": "starting"}
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -238,6 +266,20 @@ def _pg_conn(dbname: str = "postgres"):
         user=_PG_ADMIN_USER,
         password=_PG_ADMIN_PASSWORD,
     )
+
+def _get_user_count(tenant_id: str) -> int:
+    """Connect directly to the tenant database to count paying users."""
+    db_name = f"odoo_{tenant_id}"
+    try:
+        conn = _pg_conn(dbname=db_name)
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM res_users WHERE share=false AND active=true")
+            count = cur.fetchone()[0]
+        conn.close()
+        return count
+    except Exception as e:
+        logger.warning("Could not fetch user count for %s: %s", tenant_id, e)
+        return 0
 
 
 def _create_pg_user(pg_user: str, password: str, db_name: str) -> None:

@@ -174,3 +174,7 @@ def restart_deployment(namespace: str, name: str = "odoo") -> None:
         }
     }
     _apps().patch_namespaced_deployment(name=name, namespace=namespace, body=body)
+
+def scale_deployment(namespace: str, name: str, replicas: int) -> None:
+    body = {"spec": {"replicas": replicas}}
+    _apps().patch_namespaced_deployment_scale(name=name, namespace=namespace, body=body)
