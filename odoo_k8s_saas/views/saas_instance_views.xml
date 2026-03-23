@@ -149,7 +149,7 @@
               </group>
               <field name="pod_logs" nolabel="1" readonly="1"
                      placeholder="Click 'Refresh Logs' to load the latest pod output..."
-                     class="o_field_text" style="font-family: monospace; min-height: 300px; white-space: pre;"/>
+                     class="o_field_text" style="font-family: monospace; min-height: 300px; white-space: pre-wrap;"/>
             </page>
 
             <page string="📦 Addon Repos" name="addons_page">

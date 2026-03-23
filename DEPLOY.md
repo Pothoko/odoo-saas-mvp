@@ -46,12 +46,12 @@ POD=$(kubectl get pod -n odoo-admin -l app=odoo-admin -o jsonpath='{.items[0].me
 
 # 2. Actualizar el módulo afectado
 kubectl exec -n odoo-admin $POD -- \
-  odoo -u payment_qr_mercantil -d postgres --stop-after-init
+  odoo -u payment_qr_mercantil -d admin --stop-after-init
 
 # 3. Para actualizar TODOS los módulos del repo:
 kubectl exec -n odoo-admin $POD -- \
   odoo -u payment_qr_mercantil,odoo_k8s_saas,odoo_k8s_saas_subscription,subscription_oca \
-  -d postgres --stop-after-init
+  -d admin --stop-after-init
 
 # 4. Restart limpio tras el update
 kubectl rollout restart deployment/odoo-admin -n odoo-admin
