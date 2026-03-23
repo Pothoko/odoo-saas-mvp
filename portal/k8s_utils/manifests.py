@@ -52,7 +52,7 @@ def pvc_manifest(tenant_id: str, storage_gi: int = 10) -> dict[str, Any]:
     }
 
 
-def secret_manifest(tenant_id: str, db_password: str, admin_password: str) -> dict[str, Any]:
+def secret_manifest(tenant_id: str, db_password: str, admin_password: str, app_admin_password: str) -> dict[str, Any]:
     """Per-tenant secret with DB password and Odoo admin password."""
     import base64
     def b64(s: str) -> str:
@@ -69,6 +69,7 @@ def secret_manifest(tenant_id: str, db_password: str, admin_password: str) -> di
         "data": {
             "DB_PASSWORD": b64(db_password),
             "ADMIN_PASSWD": b64(admin_password),
+            "APP_ADMIN_PASSWORD": b64(app_admin_password),
         },
     }
 
@@ -122,6 +123,7 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
     ]
     _env = [
         {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
+        {"name": "APP_ADMIN_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "APP_ADMIN_PASSWORD"}}},
         {"name": "HOST",        "value": POSTGRES_HOST},
         {"name": "PORT",        "value": str(POSTGRES_PORT)},
         {"name": "USER",        "value": pg_user},

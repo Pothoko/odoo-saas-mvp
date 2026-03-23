@@ -9,7 +9,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/product_category.xml',
-        'data/mail_template.xml',
+        'data/mail_template_data.xml',
         'views/saas_instance_views.xml',
         'data/ir_cron.xml',
     ],

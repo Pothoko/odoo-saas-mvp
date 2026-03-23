@@ -82,6 +82,9 @@
           <button name="action_delete" type="object" string="Delete Instance"
                   class="btn-danger"
                   invisible="state in ('draft', 'deleted')"/>
+          <button name="action_send_credentials_email" type="object" string="✉️ Resend Credentials"
+                  class="btn-secondary"
+                  invisible="state != 'ready'"/>
           <field name="state" widget="statusbar"
                  statusbar_visible="draft,provisioning,ready,suspended"/>
         </header>
@@ -135,6 +138,9 @@
                           invisible="state != 'ready'"
                           confirm="This will overwrite odoo.conf and restart the pod. Continue?"/>
                 </div>
+              </group>
+              <group>
+                <field name="admin_password" password="True" groups="base.group_system" invisible="not admin_password"/>
               </group>
               <field name="odoo_conf" nolabel="1"
                      placeholder="Click 'Fetch Config' to load the current odoo.conf..."

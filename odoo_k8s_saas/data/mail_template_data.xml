@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="email_template_saas_credentials" model="mail.template">
+            <field name="name">SaaS: Instance Credentials</field>
+            <field name="model_id" ref="odoo_k8s_saas.model_saas_instance"/>
+            <field name="subject">Your Odoo Instance is Ready!</field>
+            <field name="email_from">{{ object.env.company.email_formatted }}</field>
+            <field name="email_to">{{ object.partner_id.email_formatted }}</field>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px;">
+    <p style="margin: 0px; padding: 0px; font-size: 13px;">
+        Hello <t t-out="object.partner_id.name or 'Customer'"/>,<br/><br/>
+        Great news! Your Odoo instance is now provisioned and ready to use.<br/><br/>
+        You can access your system here:<br/>
+        <strong>URL:</strong> <a t-attf-href="{{ object.url }}" t-out="object.url">https://domain.com</a><br/><br/>
+        Here are your superadmin credentials:<br/>
+        <strong>Username:</strong> admin<br/>
+        <strong>Password:</strong> <t t-out="object.admin_password or ''"/><br/><br/>
+        Please log in and change your password as soon as possible.<br/><br/>
+        Best regards,<br/>
+        The AEI Software Team
+    </p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+    </data>
+</odoo>

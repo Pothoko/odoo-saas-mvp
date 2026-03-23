@@ -47,6 +47,7 @@ class InstanceResponse(BaseModel):
     url: str
     status: str
     user_count: int = 0
+    app_admin_password: str = None
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ def create_instance(req: CreateInstanceRequest):
 
     db_password = _gen_password()
     admin_password = _gen_password()
+    app_admin_password = _gen_password(16)
     pg_user = f"odoo-{req.tenant_id}"
     db_name = f"odoo_{req.tenant_id}"
 
@@ -113,6 +115,7 @@ def create_instance(req: CreateInstanceRequest):
         tenant_id=req.tenant_id,
         db_password=db_password,
         admin_password=admin_password,
+        app_admin_password=app_admin_password,
         storage_gi=req.storage_gi,
         addons_repos=req.addons_repos,
     )
@@ -129,6 +132,7 @@ def create_instance(req: CreateInstanceRequest):
         namespace=f"odoo-{req.tenant_id}",
         url=f"https://{req.tenant_id}.{BASE_DOMAIN}",
         status="provisioning",
+        app_admin_password=app_admin_password,
     )
 
 
