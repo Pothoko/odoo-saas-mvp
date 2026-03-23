@@ -31,6 +31,7 @@ class CreateInstanceRequest(BaseModel):
     tenant_id: str          # slug: letters, numbers, hyphens
     plan: str = "starter"   # starter | pro | enterprise
     storage_gi: int = 10
+    addons_repos: list = []
 
     @field_validator("tenant_id")
     @classmethod
@@ -112,6 +113,7 @@ def create_instance(req: CreateInstanceRequest):
         db_password=db_password,
         admin_password=admin_password,
         storage_gi=req.storage_gi,
+        addons_repos=req.addons_repos,
     )
 
     for m in manifests:
@@ -164,6 +166,66 @@ def delete_instance(tenant_id: str):
         _drop_pg_user(pg_user, db_name)
     except Exception as exc:
         logger.warning("Could not drop Postgres user %s: %s", pg_user, exc)
+
+
+class ConfigUpdateRequest(BaseModel):
+    odoo_conf: str = None
+    addons_repos: list = None
+
+@router.get("/{tenant_id}/config")
+def get_instance_config(tenant_id: str):
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import read_namespaced_config_map
+    try:
+        data = read_namespaced_config_map(namespace, "odoo-conf")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    
+    import json
+    addons = []
+    if "addons.json" in data:
+        try:
+            addons = json.loads(data["addons.json"])
+        except:
+            pass
+    return {"odoo_conf": data.get("odoo.conf", ""), "addons_repos": addons}
+
+@router.put("/{tenant_id}/config")
+def update_instance_config(tenant_id: str, req: ConfigUpdateRequest):
+    if req.odoo_conf is None:
+        raise HTTPException(status_code=400, detail="odoo_conf is required for PUT")
+    return patch_instance_config(tenant_id, req)
+
+@router.patch("/{tenant_id}/config")
+def patch_instance_config(tenant_id: str, req: ConfigUpdateRequest):
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import patch_namespaced_config_map, restart_deployment
+    import json
+    update_data = {}
+    if req.odoo_conf is not None:
+        update_data["odoo.conf"] = req.odoo_conf
+    if req.addons_repos is not None:
+        update_data["addons.json"] = json.dumps(req.addons_repos)
+        
+    if not update_data:
+        return {"status": "no change"}
+        
+    try:
+        patch_namespaced_config_map(namespace, "odoo-conf", update_data)
+        restart_deployment(namespace, "odoo")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"status": "restarting"}
+
+@router.get("/{tenant_id}/logs")
+def get_instance_logs(tenant_id: str, lines: int = 200):
+    namespace = f"odoo-{tenant_id}"
+    from k8s_utils.client import read_namespaced_pod_log
+    try:
+        logs = read_namespaced_pod_log(namespace, "app=odoo", lines)
+        return {"logs": logs}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Postgres helpers ─────────────────────────────────────────────────────────

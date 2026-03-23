@@ -46,7 +46,6 @@ Internet → Cloudflare Tunnel → Traefik (K3s ingress)
 ### Paso 1 — Clonar el repositorio
 
 ```bash
-cd /opt
 git clone https://github.com/jpvargassoruco/odoo-saas-mvp.git
 cd odoo-saas-mvp
 ```
