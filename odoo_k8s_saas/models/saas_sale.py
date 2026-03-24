@@ -160,6 +160,8 @@ class AccountMove(models.Model):
                     "storage_gi": 10,
                     "partner_id": order.partner_id.id,
                     "sale_order_id": order.id,
+                    "odoo_version": product.odoo_version or "18.0",
+                    "custom_image": product.custom_image,
                     # Set subscription_id at create-time so the ORM flushes it
                     # to the DB before the stage-advance write() fires the
                     # SaleSubscription.write() hook below.

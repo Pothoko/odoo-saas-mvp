@@ -113,8 +113,9 @@ without_demo = all
 
 
 
-def deployment_manifest(tenant_id: str) -> dict[str, Any]:
+def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image: str | None = None) -> dict[str, Any]:
     pg_user = f"odoo-{tenant_id}"
+    active_image = custom_image if custom_image else f"odoo:{odoo_version}"
     # Shared volume mounts and env used by both init and main containers
     _vol_mounts = [
         {"name": "odoo-conf", "mountPath": "/etc/odoo"},
@@ -178,7 +179,7 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                         },
                         {
                             "name": "odoo-init",
-                            "image": ODOO_IMAGE,
+                            "image": active_image,
                             "command": ["/bin/sh", "-c"],
                             "args": [
                                 "odoo --config=/etc/odoo/odoo.conf --init=base --stop-after-init && "
@@ -191,7 +192,7 @@ def deployment_manifest(tenant_id: str) -> dict[str, Any]:
                     "containers": [
                         {
                             "name": "odoo",
-                            "image": ODOO_IMAGE,
+                            "image": active_image,
                             "args": ["--config=/etc/odoo/odoo.conf"],
                             "ports": [
                                 {"containerPort": 8069},
@@ -282,6 +283,8 @@ def all_manifests(
     app_admin_password: str,
     storage_gi: int = 10,
     addons_repos: list | None = None,
+    odoo_version: str = "18.0",
+    custom_image: str | None = None,
 ) -> list[dict]:
     """Return all manifests in apply-order."""
     return [
@@ -289,7 +292,7 @@ def all_manifests(
         pvc_manifest(tenant_id, storage_gi),
         secret_manifest(tenant_id, db_password, admin_password, app_admin_password),
         configmap_manifest(tenant_id, db_password, admin_password, addons_repos),
-        deployment_manifest(tenant_id),
+        deployment_manifest(tenant_id, odoo_version, custom_image),
         service_manifest(tenant_id),
         ingress_manifest(tenant_id),
     ]

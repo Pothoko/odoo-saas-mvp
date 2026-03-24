@@ -61,6 +61,13 @@ class SaasInstance(models.Model):
         copy=False,
         help="The randomly generated password for the application's admin user.",
     )
+    odoo_version = fields.Selection([
+        ('17.0', 'Odoo 17.0 (Official)'),
+        ('18.0', 'Odoo 18.0 (Official)'),
+        ('19.0', 'Odoo 19.0 (Official)'),
+        ('custom', 'Custom Image'),
+    ], string="Odoo Version", default='18.0', required=True)
+    custom_image = fields.Char(string="Custom Odoo Image")
     odoo_conf = fields.Text(
         string="odoo.conf",
         help="Current odoo.conf content (fetched from the running instance).",
@@ -174,6 +181,8 @@ class SaasInstance(models.Model):
                 "tenant_id": self.tenant_id,
                 "plan": self.plan,
                 "storage_gi": self.storage_gi,
+                "odoo_version": self.odoo_version,
+                "custom_image": self.custom_image,
             }
             # Include addon repos if configured
             if self.addons_repos_json:

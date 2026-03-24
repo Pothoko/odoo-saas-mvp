@@ -119,6 +119,8 @@
             <group string="Configuration">
               <field name="plan"/>
               <field name="storage_gi"/>
+              <field name="odoo_version"/>
+              <field name="custom_image" invisible="odoo_version != 'custom'"/>
               <field name="url" widget="url" readonly="1"/>
               <field name="namespace" readonly="1"/>
             </group>

@@ -32,6 +32,8 @@ class CreateInstanceRequest(BaseModel):
     plan: str = "starter"   # starter | pro | enterprise
     storage_gi: int = 10
     addons_repos: list = []
+    odoo_version: str = "18.0"
+    custom_image: str | None = None
 
     @field_validator("tenant_id")
     @classmethod
@@ -118,6 +120,8 @@ def create_instance(req: CreateInstanceRequest):
         app_admin_password=app_admin_password,
         storage_gi=req.storage_gi,
         addons_repos=req.addons_repos,
+        odoo_version=req.odoo_version,
+        custom_image=req.custom_image,
     )
 
     for m in manifests:
