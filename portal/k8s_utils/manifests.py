@@ -90,7 +90,7 @@ admin_passwd = {admin_password}
 db_name = {db_name}
 dbfilter = ^{db_name}$
 list_db = False
-addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons,/opt/custom-addons
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons
 data_dir = /var/lib/odoo
 workers = 2
 max_cron_threads = 1
@@ -180,6 +180,7 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
                         {
                             "name": "odoo-init",
                             "image": active_image,
+                            "imagePullPolicy": "Always",
                             "command": ["/bin/sh", "-c"],
                             "args": [
                                 "odoo --config=/etc/odoo/odoo.conf --init=base --stop-after-init && "
@@ -193,6 +194,7 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
                         {
                             "name": "odoo",
                             "image": active_image,
+                            "imagePullPolicy": "Always",
                             "args": ["--config=/etc/odoo/odoo.conf"],
                             "ports": [
                                 {"containerPort": 8069},
