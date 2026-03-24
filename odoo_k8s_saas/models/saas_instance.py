@@ -181,8 +181,8 @@ class SaasInstance(models.Model):
                 "tenant_id": self.tenant_id,
                 "plan": self.plan,
                 "storage_gi": self.storage_gi,
-                "odoo_version": self.odoo_version,
-                "custom_image": self.custom_image,
+                "odoo_version": self.odoo_version or "18.0",
+                "custom_image": self.custom_image if self.custom_image else None,
             }
             # Include addon repos if configured
             if self.addons_repos_json:
