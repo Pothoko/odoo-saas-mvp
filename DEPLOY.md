@@ -13,6 +13,16 @@
 | Imagen portal | `ghcr.io/jpvargassoruco/odoo-saas-mvp/portal:latest` |
 | Repo en initContainer | `https://github.com/jpvargassoruco/odoo-saas-mvp.git` (branch `main`, `--depth=1`) |
 | Addons copiados | `payment_qr_mercantil`, `odoo_k8s_saas`, `odoo_k8s_saas_subscription` (del repo principal) + `subscription_oca` (clonado de [odoo18-oca-contract](https://github.com/jpvargassoruco/odoo18-oca-contract)) |
+[cert-manager]: https://cert-manager.io/
+
+---
+
+## Creación de Custom Images (SaaS Tenants)
+
+Si un cliente requiere Odoo con módulos pre-instalados (baked-in), la imagen de Docker debe cumplir estas dos reglas principales para no colisionar con la infraestructura de inicialización nativa del SaaS:
+
+1. **Ruta de Addons Aislada:** Los addons custom deben copiarse obligatoriamente dentro de `/opt/custom-addons` durante el paso `RUN` del Dockerfile. No ubicar los archivos en `/mnt/extra-addons` ni otras rutas por omisión de Odoo, ya que Kubernetes monta de manera forzosa un volumen `emptyDir` allí para su `initContainer`, lo que sobreescribiría silenciosamente todas las capas instaladas.
+2. **Entrypoint Wrapper Dinámico:** Es imperativo utilizar un script de entrada (ej: `entrypoint-custom.sh`) que extienda el entrypoint original de Odoo sumando la inyección local `--addons-path="...,/opt/custom-addons"`. *Importante:* Desde Odoo 19 en adelante, cualquier ruta de un `odoo.conf` inyectada de manera global que resulte no existir en un contenedor, detonará una excepción fatal `FileNotFoundError`; por esto mismo, la inyección del path custom debe realizarse siempre desde el argumento CLI dentro de la propia imagen custom.
 
 ---
 

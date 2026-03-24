@@ -313,6 +313,43 @@ kubectl rollout restart deployment/odoo-admin -n odoo-admin
 kubectl rollout status deployment/odoo-admin -n odoo-admin
 ```
 
+### Reset completo (Eliminar SaaS + Tenant DBs + PVCs)
+
+```bash
+# Borra las bases de datos en Postgres
+kubectl exec -it -n aeisoftware postgres-0 -- psql -U odoo -d postgres -c "DROP DATABASE \"odoo-demo-company\"; DROP ROLE \"odoo-demo-company\";"
+
+# Borra la instancia en K8s (deployments, servicios, PVCs y secretos)
+python3 infra/delete-instance.py demo-company
+```
+
+---
+
+## Multi-Version y Custom Images
+
+La plataforma soporta la creación de instancias con versiones específicas de Odoo (17.0, 18.0, 19.0) y el uso de **imágenes de Docker personalizadas** por cliente (ej: `ghcr.io/jpvargassoruco/custom-odoo-images:19.0`).
+- La configuración de versión se define en el **Producto SaaS** (Pestaña "SaaS Configuration").
+- Cuando se vende una suscripción con una imagen personalizada, Kubernetes forzará un `imagePullPolicy: Always` para asegurar que el tenant siempre utilice la última versión de su imagen custom sin depender del caché del nodo.
+- Los módulos integrados en la imagen personalizada deben ubicarse en `/opt/custom-addons` para evitar ser sobrescritos por los volúmenes efímeros de Kubernetes.
+
+---
+
+## Batería de Pruebas Sugeridas (QA)
+
+### Pruebas desde la perspectiva del Administrador (Admin Odoo-SaaS-MVP)
+1. **Creación de Producto:** Crear un nuevo producto SaaS, ir a la pestaña "SaaS Configuration", asignar `Odoo Version = Custom Image`, e introducir el tag de una imagen alojada en Github en el campo `Custom Odoo Image`.
+2. **Venta Automática:** Crear un presupuesto para un cliente con el producto SaaS y confirmarlo. Verificar que el estado de la venta avance y la suscripción pase a "In Progress".
+3. **Provisionamiento:** Navegar a "SaaS -> Instancias" en el backend administrativo. Verificar que el ORM haya creado la instancia automáticamente heredando la versión y ruta de imagen del producto hijo.
+4. **Verificación de Logs:** Acceder a la vista formulario de la instancia SaaS y confirmar a través de los botones nativos "Odoo Logs" e "Init Logs" que la instancia booteó sin errores y descargó las credenciales de la API FastAPI.
+5. **Gestión de Ciclo de Vida:** Ejecutar la acción "Suspend" para escalar el pod a 0 (reducción de consumo) y "Resume" para escalar a 1. Comprobar en Kubernetes que los pods bajen o suban efectivamente.
+
+### Pruebas desde la perspectiva del Cliente Final (Tenant SaaS)
+1. **Recepción de Credenciales:** Tras confirmarse el pago u orden, verificar la recepción del correo electrónico automatizado enviado por el Cron Job, conteniendo la URL única, usuario (`admin`) y la contraseña generada aleatoriamente.
+2. **Acceso al Sistema:** Navegar a la URL autogenerada para el Tenant (vía Traefik ingress) e ingresar con las credenciales exactas del email.
+3. **Verificación de Módulos Base:** Confirmar que el Wizard de inicialización cargó el Odoo básico en blanco sin romper dependencias de Python.
+4. **Verificación de Addons Custom (Si aplica):** Comprobar que los addons inyectados a nivel de la imagen Docker en `/opt/custom-addons` aparecen correctamente en la lista de Aplicaciones listas para instalar sin arrojar exclusiones de `FileNotFoundError` en logs.
+5. **Persistencia Volumétrica:** Crear un registro transaccional cualquiera (ej. un Cliente). Solicitar al Admin simular una Suspensión temporal y posterior Reactivación de la instancia. Retornar al sistema y validar que la base de datos Postgres y el volumen NFS conservaron la integridad del registro intacta.
+
 ---
 
 ## Teardown
