@@ -96,7 +96,7 @@ workers = 2
 max_cron_threads = 1
 gevent_port = 8072
 proxy_mode = True
-without_demo = all
+without_demo = True
 """
     return {
         "apiVersion": "v1",
