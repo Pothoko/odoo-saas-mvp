@@ -152,6 +152,18 @@ class SaleSubscription(models.Model):
 
         storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
 
+        # Determine saas product to copy configuration
+        saas_product = False
+        if self.sale_order_id:
+            saas_category = self.env.ref("odoo_k8s_saas.product_category_odoo_saas", raise_if_not_found=False)
+            for line in self.sale_order_id.order_line:
+                if not line.product_id: continue
+                in_categ = saas_category and self._is_saas_category(line.product_id.categ_id, saas_category)
+                in_name = "saas" in (line.product_id.name or "").lower()
+                if in_categ or in_name:
+                    saas_product = line.product_id
+                    break
+
         instance = self.env["saas.instance"].create({
             "name": f"{self.partner_id.name} — Re-provision ({self.display_name})",
             "tenant_id": tenant_id,
@@ -160,6 +172,8 @@ class SaleSubscription(models.Model):
             "partner_id": self.partner_id.id,
             "sale_order_id": self.sale_order_id.id if self.sale_order_id else False,
             "subscription_id": self.id,
+            "odoo_version": saas_product.odoo_version if saas_product else "18.0",
+            "custom_image": saas_product.custom_image if saas_product else False,
         })
 
         logger.info(
@@ -231,6 +245,7 @@ class SaleSubscription(models.Model):
                         in_name = "saas" in (line.product_id.name or "").lower()
                         if in_categ or in_name:
                             has_saas = True
+                            saas_product = line.product_id
                             break
                     
                     if has_saas:
@@ -290,6 +305,8 @@ class SaleSubscription(models.Model):
                                     "partner_id": rec.partner_id.id,
                                     "sale_order_id": rec.sale_order_id.id,
                                     "subscription_id": rec.id,
+                                    "odoo_version": saas_product.odoo_version if saas_product else "18.0",
+                                    "custom_image": saas_product.custom_image if saas_product else False,
                                 })
                                 logger.info(
                                     "Created saas.instance %s from subscription %s",
