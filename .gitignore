@@ -7,6 +7,7 @@ __pycache__/
 .env.*
 !.env.example
 !*.env.example
+aeisoftware_key.pem
 
 *.egg-info/
 dist/
