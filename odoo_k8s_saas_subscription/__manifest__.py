@@ -16,7 +16,6 @@
         'views/sale_subscription_views.xml',
         'views/subscription_template_views.xml',
         'views/subscription_portal_templates.xml',
-        'views/website_assets.xml',
     ],
     'installable': True,
     'auto_install': True,

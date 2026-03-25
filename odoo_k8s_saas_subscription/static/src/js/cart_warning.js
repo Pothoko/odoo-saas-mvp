@@ -1,51 +1,58 @@
-/** @odoo-module **/
-
-import { WebsiteSale } from "@website_sale/js/website_sale";
-import { patch } from "@web/core/utils/patch";
-
-/*
- * Intercept the cart update response; if the back-end attached a `warning`
- * key (SaaS duplicate-plan message), display it as a Bootstrap 5 toast.
+/**
+ * Cart warning toast — vanilla JS, no Odoo module imports.
+ *
+ * Intercepts XMLHttpRequest responses to /shop/cart/update_json;
+ * if the JSON body contains a "warning" key, display a Bootstrap 5 toast.
  */
-patch(WebsiteSale.prototype, {
-    /**
-     * @override
-     */
-    async _onClickAdd(ev) {
-        const result = await this._super(...arguments);
-        this._showCartWarning(result);
-        return result;
-    },
+(function () {
+    "use strict";
 
-    _showCartWarning(result) {
-        if (!result || !result.warning) {
-            return;
+    var _origOpen = XMLHttpRequest.prototype.open;
+    var _origSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function (method, url) {
+        this._saasUrl = url;
+        return _origOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function () {
+        var xhr = this;
+        if (xhr._saasUrl && xhr._saasUrl.indexOf("/shop/cart/update") !== -1) {
+            xhr.addEventListener("load", function () {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data && data.warning) {
+                        _showToast(data.warning);
+                    }
+                } catch (e) {
+                    // Not JSON or parse error — ignore
+                }
+            });
         }
+        return _origSend.apply(this, arguments);
+    };
 
-        // Build a Bootstrap 5 toast element
-        const toastId = `saas-cart-warn-${Date.now()}`;
-        const html = `
-            <div id="${toastId}"
-                 class="toast align-items-center text-bg-warning border-0 position-fixed bottom-0 end-0 m-3"
-                 role="alert" aria-live="assertive" aria-atomic="true"
-                 data-bs-delay="8000" style="z-index:10000;">
-                <div class="d-flex">
-                    <div class="toast-body fw-semibold">
-                        <i class="fa fa-exclamation-triangle me-1"></i>
-                        ${result.warning}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto"
-                            data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        `;
+    function _showToast(message) {
+        var id = "saas-cart-warn-" + Date.now();
+        var html =
+            '<div id="' + id + '" ' +
+            'class="toast align-items-center text-bg-warning border-0 position-fixed bottom-0 end-0 m-3" ' +
+            'role="alert" aria-live="assertive" aria-atomic="true" ' +
+            'data-bs-delay="8000" style="z-index:10000;">' +
+            '<div class="d-flex">' +
+            '<div class="toast-body fw-semibold">' +
+            '<i class="fa fa-exclamation-triangle me-1"></i> ' +
+            message +
+            '</div>' +
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" ' +
+            'data-bs-dismiss="toast" aria-label="Close"></button>' +
+            '</div></div>';
         document.body.insertAdjacentHTML("beforeend", html);
-        const toastEl = document.getElementById(toastId);
-        if (toastEl && window.bootstrap) {
-            const toast = new window.bootstrap.Toast(toastEl);
+        var el = document.getElementById(id);
+        if (el && window.bootstrap && window.bootstrap.Toast) {
+            var toast = new window.bootstrap.Toast(el);
             toast.show();
-            // Cleanup DOM after the toast hides
-            toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+            el.addEventListener("hidden.bs.toast", function () { el.remove(); });
         }
-    },
-});
+    }
+})();
