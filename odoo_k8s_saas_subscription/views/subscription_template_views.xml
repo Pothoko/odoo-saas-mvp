@@ -13,7 +13,7 @@
                         <field name="is_saas_plan" widget="boolean_toggle"/>
                     </group>
                     <group string="Per-User Pricing" col="4"
-                           attrs="{'invisible': [('is_saas_plan', '=', False)]}">
+                           invisible="not is_saas_plan">
                         <field name="included_users"/>
                         <field name="price_per_extra_user"/>
                     </group>
