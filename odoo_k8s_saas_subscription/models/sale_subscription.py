@@ -234,85 +234,94 @@ class SaleSubscription(models.Model):
 
             # → In Progress: create and provision
             if stage_in_progress and new_stage_id == stage_in_progress.id:
-                if not instances and rec.sale_order_id:
-                    # Check if there is a SaaS product in the SO
-                    saas_category = self.env.ref("odoo_k8s_saas.product_category_odoo_saas", raise_if_not_found=False)
-                    has_saas = False
+                # Guard: only provision if the template is marked as a SaaS plan
+                if (not instances and rec.sale_order_id
+                        and rec.template_id and rec.template_id.is_saas_plan):
+                    # Collect ALL SaaS order lines (one instance per line)
+                    saas_category = self.env.ref(
+                        "odoo_k8s_saas.product_category_odoo_saas",
+                        raise_if_not_found=False,
+                    )
+                    saas_lines = []
                     for line in rec.sale_order_id.order_line:
                         if not line.product_id:
                             continue
-                        in_categ = saas_category and rec._is_saas_category(line.product_id.categ_id, saas_category)
+                        in_categ = (saas_category
+                                    and rec._is_saas_category(
+                                        line.product_id.categ_id, saas_category))
                         in_name = "saas" in (line.product_id.name or "").lower()
                         if in_categ or in_name:
-                            has_saas = True
-                            saas_product = line.product_id
-                            break
-                    
-                    if has_saas:
-                        # Create the instance
-                        sub_code = (rec.name or "").lower().replace("/", "-")
-                        tenant_id = rec._generate_saas_tenant_id(rec.partner_id, sub_code)
+                            saas_lines.append(line)
 
-                        # ── Idempotency guard: check if sale_order_id already exists ──────
-                        # This prevents creating multiple instances for the same sale.order
-                        # even if the subscription is different (e.g., cron loop).
+                    for sol in saas_lines:
+                        saas_product = sol.product_id
+                        sub_code = (rec.name or "").lower().replace("/", "-")
+                        tenant_id = rec._generate_saas_tenant_id(
+                            rec.partner_id, sub_code)
+                        # Append version suffix when there are multiple SaaS lines
+                        if len(saas_lines) > 1 and saas_product.odoo_version:
+                            tenant_id = f"{tenant_id}-{saas_product.odoo_version.replace('.', '')}"
+
+                        # ── Idempotency guard 1: by sale_order_line_id ────────
                         existing = self.env["saas.instance"].search(
-                            [("sale_order_id", "=", rec.sale_order_id.id)], limit=1
+                            [("sale_order_line_id", "=", sol.id)], limit=1,
                         )
                         if existing:
                             logger.warning(
-                                "write() subscription %s: sale_order_id '%s' already has a "
-                                "saas.instance (id=%s, state=%s) — reusing it instead of "
-                                "creating a duplicate.",
-                                rec.name, rec.sale_order_id.id, existing.id, existing.state,
+                                "write() subscription %s: order line %s already "
+                                "has saas.instance (id=%s) — reusing.",
+                                rec.name, sol.id, existing.id,
                             )
-                            # Re-link it to this subscription so provisioning below works
                             if not existing.subscription_id:
                                 existing.subscription_id = rec.id
-                            instances = existing
-                        else:
-                            # ── Idempotency guard 2: check by tenant_id ──────────────────────
-                            # Secondary guard: prevents creating a duplicate if a K8s namespace
-                            # with this tenant_id already exists (orphaned from a DB rollback).
-                            existing_by_tid = self.env["saas.instance"].search(
-                                [("tenant_id", "=", tenant_id)], limit=1
+                            instances |= existing
+                            continue
+
+                        # ── Idempotency guard 2: by tenant_id ─────────────────
+                        existing_by_tid = self.env["saas.instance"].search(
+                            [("tenant_id", "=", tenant_id)], limit=1,
+                        )
+                        if existing_by_tid:
+                            logger.warning(
+                                "write() subscription %s: tenant_id '%s' "
+                                "already exists (id=%s) — reusing.",
+                                rec.name, tenant_id, existing_by_tid.id,
                             )
-                            if existing_by_tid:
-                                logger.warning(
-                                    "write() subscription %s: tenant_id '%s' already has "
-                                    "saas.instance (id=%s, state=%s) — reusing.",
-                                    rec.name, tenant_id, existing_by_tid.id, existing_by_tid.state,
-                                )
-                                if not existing_by_tid.subscription_id:
-                                    existing_by_tid.subscription_id = rec.id
-                                instances = existing_by_tid
-                            else:
-                                plan = "starter"
-                                if rec.template_id:
-                                    tmpl_name = (rec.template_id.name or "").lower()
-                                    if "enterprise" in tmpl_name:
-                                        plan = "enterprise"
-                                    elif "pro" in tmpl_name:
-                                        plan = "pro"
+                            if not existing_by_tid.subscription_id:
+                                existing_by_tid.subscription_id = rec.id
+                            instances |= existing_by_tid
+                            continue
 
-                                storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
+                        # ── Create instance ───────────────────────────────────
+                        plan = "starter"
+                        if rec.template_id:
+                            tmpl_name = (rec.template_id.name or "").lower()
+                            if "enterprise" in tmpl_name:
+                                plan = "enterprise"
+                            elif "pro" in tmpl_name:
+                                plan = "pro"
 
-                                inst = self.env["saas.instance"].create({
-                                    "name": f"{rec.partner_id.name} — {rec.display_name}",
-                                    "tenant_id": tenant_id,
-                                    "plan": plan,
-                                    "storage_gi": storage_map.get(plan, 10),
-                                    "partner_id": rec.partner_id.id,
-                                    "sale_order_id": rec.sale_order_id.id,
-                                    "subscription_id": rec.id,
-                                    "odoo_version": saas_product.odoo_version if saas_product else "18.0",
-                                    "custom_image": saas_product.custom_image if saas_product else False,
-                                })
-                                logger.info(
-                                    "Created saas.instance %s from subscription %s",
-                                    inst.tenant_id, rec.name,
-                                )
-                                instances = inst
+                        storage_map = {"starter": 10, "pro": 50, "enterprise": 100}
+
+                        inst = self.env["saas.instance"].create({
+                            "name": f"{rec.partner_id.name} — {rec.display_name}",
+                            "tenant_id": tenant_id,
+                            "plan": plan,
+                            "storage_gi": storage_map.get(plan, 10),
+                            "partner_id": rec.partner_id.id,
+                            "sale_order_id": rec.sale_order_id.id,
+                            "sale_order_line_id": sol.id,
+                            "subscription_id": rec.id,
+                            "odoo_version": saas_product.odoo_version if saas_product else "18.0",
+                            "custom_image": saas_product.custom_image if saas_product else False,
+                        })
+                        logger.info(
+                            "Created saas.instance %s (version=%s) from "
+                            "subscription %s, order line %s",
+                            inst.tenant_id, inst.odoo_version,
+                            rec.name, sol.id,
+                        )
+                        instances |= inst
 
                 # Provision any draft/error instances
                 for inst in instances.filtered(lambda i: i.state in ("draft", "error")):

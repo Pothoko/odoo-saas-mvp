@@ -11,6 +11,12 @@ from odoo import fields, models
 class SaleSubscriptionTemplate(models.Model):
     _inherit = "sale.subscription.template"
 
+    is_saas_plan = fields.Boolean(
+        string="Is SaaS Plan",
+        default=False,
+        help="If True, subscriptions with this template trigger automatic "
+             "SaaS instance provisioning on activation.",
+    )
     included_users = fields.Integer(
         string="Included Users",
         default=1,

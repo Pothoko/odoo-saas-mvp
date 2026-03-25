@@ -17,6 +17,12 @@ class SaasInstance(models.Model):
         tracking=True,
         help="Recurring subscription that manages billing for this instance.",
     )
+    sale_order_line_id = fields.Many2one(
+        "sale.order.line",
+        string="Sale Order Line",
+        ondelete="set null",
+        help="Specific order line that triggered this instance's creation.",
+    )
     subscription_stage = fields.Char(
         string="Subscription Stage",
         related="subscription_id.stage_id.name",
