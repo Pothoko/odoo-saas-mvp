@@ -1,12 +1,13 @@
 """
 models/sale_order.py
 
-Restricts the eCommerce cart to a single SaaS subscription product.
-Customers cannot add more than one SaaS plan to a cart at a time.
+When the eCommerce cart already contains a SaaS subscription product and the
+customer tries to add another one, the purchase is *allowed* but a warning
+message is injected into the cart-update response so the frontend can display
+a toast notification.
 """
 import logging
 from odoo import models, _
-from odoo.exceptions import UserError
 
 logger = logging.getLogger(__name__)
 
@@ -15,21 +16,7 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     def _cart_update(self, product_id, line_id=None, add_qty=0, set_qty=0, **kwargs):
-        """Block adding a second SaaS subscription to the eCommerce cart.
-
-        If the cart already has a SaaS subscription product and the user
-        tries to add another one (different product or same with qty > 1),
-        raise a UserError so the website shows a friendly error message.
-        """
-        # Detect if website_sale is installed — skip guard if not
-        website_sale_installed = self.env["ir.module.module"].sudo().search_count(
-            [("name", "=", "website_sale"), ("state", "=", "installed")]
-        )
-        if not website_sale_installed:
-            return super()._cart_update(
-                product_id, line_id=line_id, add_qty=add_qty, set_qty=set_qty, **kwargs
-            )
-
+        """Allow multiple SaaS products but warn the customer."""
         product = self.env["product.product"].browse(product_id)
         saas_categ = self.env.ref(
             "odoo_k8s_saas.product_category_odoo_saas", raise_if_not_found=False
@@ -48,23 +35,27 @@ class SaleOrder(models.Model):
             # Fallback: name-based detection
             return "saas" in (prod.name or "").lower()
 
-        # Only apply restriction when adding a SaaS product
+        # Detect whether there is already a SaaS product in the cart
+        warning = False
         if _is_saas(product):
-            # Check existing cart lines for any SaaS product (different from the
-            # line being updated — updating qty on the *same* line is allowed)
             for line in self.order_line:
+                # Ignore qty changes on the same line
                 if line.product_id.id == product_id and line.id == line_id:
-                    # Same line update (qty change): allowed
                     continue
                 if _is_saas(line.product_id):
-                    raise UserError(
-                        _(
-                            "Solo puedes adquirir un plan SaaS por pedido. "
-                            "Si deseas cambiar de plan, elimina el producto "
-                            "actual del carrito antes de agregar uno nuevo."
-                        )
+                    warning = _(
+                        "Ya tienes un plan SaaS en tu carrito. "
+                        "Cada compra generará una suscripción independiente "
+                        "con su propio número de contrato."
                     )
+                    break
 
-        return super()._cart_update(
+        # Always let the purchase proceed
+        result = super()._cart_update(
             product_id, line_id=line_id, add_qty=add_qty, set_qty=set_qty, **kwargs
         )
+
+        if warning and isinstance(result, dict):
+            result["warning"] = warning
+
+        return result

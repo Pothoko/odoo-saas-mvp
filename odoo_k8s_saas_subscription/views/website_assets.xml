@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Register SaaS cart-warning JS in the frontend asset bundle -->
+    <template id="assets_frontend" inherit_id="web.assets_frontend" name="SaaS Cart Warning JS">
+        <xpath expr="." position="inside">
+            <script type="text/javascript"
+                    src="/odoo_k8s_saas_subscription/static/src/js/cart_warning.js"/>
+        </xpath>
+    </template>
+</odoo>

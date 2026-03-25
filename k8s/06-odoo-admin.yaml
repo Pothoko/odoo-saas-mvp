@@ -95,6 +95,11 @@ spec:
               # Clone subscription_oca from OCA fork
               git clone --depth=1 -b 18.0 https://github.com/jpvargassoruco/odoo18-oca-contract.git /tmp/oca-contract
               cp -r /tmp/oca-contract/subscription_oca /mnt/extra-addons/
+              # Clone MUK modules (v19.0)
+              git clone --depth=1 -b 19.0 https://github.com/muk-it/muk_base.git /tmp/muk-base
+              for d in /tmp/muk-base/muk_*/; do
+                cp -r "$d" /mnt/extra-addons/
+              done
               echo "All addons copied OK"
               ls -la /mnt/extra-addons/
           volumeMounts:
