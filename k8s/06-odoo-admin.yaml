@@ -167,14 +167,17 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 30
-          resources:
-            requests:
-              cpu: 100m
-              memory: 512Mi
-            limits:
-              cpu: 1
-              memory: 2Gi
-
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                cpu: 1
+                memory: 2Gi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        fsGroup: 101
       volumes:
         - name: odoo-conf-tmpl
           configMap:
@@ -212,6 +215,7 @@ metadata:
   namespace: odoo-admin
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-odoo-headers@kubernetescrd,kube-system-odoo-compress@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:

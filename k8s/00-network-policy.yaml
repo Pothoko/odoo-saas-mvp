@@ -1,0 +1,95 @@
+---
+# Default Deny all traffic in aeisoftware namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: aeisoftware
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow Postgres to receive traffic from Odoo pods (any namespace with label managed-by=saas-portal)
+# and from the portal itself.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-ingress
+  namespace: aeisoftware
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          managed-by: saas-portal
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: aeisoftware
+      podSelector:
+        matchLabels:
+          app: portal
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow Portal to receive traffic from Traefik and Odoo Admin
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-portal-ingress
+  namespace: aeisoftware
+spec:
+  podSelector:
+    matchLabels:
+      app: portal
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: odoo-admin
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Allow Portal and Postgres to talk to DNS (Egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-dns
+  namespace: aeisoftware
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0 # Allow external API calls for Cloudflare/Github if needed
+    ports:
+    - protocol: TCP
+      port: 443

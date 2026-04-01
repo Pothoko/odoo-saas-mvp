@@ -10,3 +10,26 @@ spec:
   headers:
     customRequestHeaders:
       X-Forwarded-Proto: "https"
+
+---
+# Traefik Gzip compression
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: odoo-compress
+  namespace: kube-system
+spec:
+  compress: {}
+
+---
+# Rate limiting for portal API (10 requests per second, burst of 20)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: portal-ratelimit
+  namespace: kube-system
+spec:
+  rateLimit:
+    average: 10
+    burst: 20
+

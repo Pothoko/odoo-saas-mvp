@@ -8,6 +8,7 @@ metadata:
   namespace: aeisoftware
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-odoo-headers@kubernetescrd,kube-system-portal-ratelimit@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:

@@ -190,6 +190,11 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
                             "volumeMounts": _vol_mounts,
                         }
                     ],
+                    "securityContext": {
+                        "runAsNonRoot": True,
+                        "runAsUser": 101,
+                        "fsGroup": 101,
+                    },
                     "containers": [
                         {
                             "name": "odoo",
@@ -225,6 +230,40 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
     }
 
 
+def network_policy_manifest(tenant_id: str) -> dict[str, Any]:
+    """Isolate tenant namespace: deny all, allow Traefik for 8069/8072 and Postgres for 5432."""
+    ns = _ns(tenant_id)
+    return {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {"name": "tenant-isolation", "namespace": ns},
+        "spec": {
+            "podSelector": {},
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": [
+                {   # Allow Ingress Controller (Traefik)
+                    "from": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}],
+                    "ports": [{"protocol": "TCP", "port": 8069}, {"protocol": "TCP", "port": 8072}]
+                }
+            ],
+            "egress": [
+                {   # Allow access to Shared Postgres in aeisoftware namespace
+                    "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "aeisoftware"}}}],
+                    "ports": [{"protocol": "TCP", "port": POSTGRES_PORT}]
+                },
+                {   # Allow DNS resolution
+                    "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}, "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}],
+                    "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]
+                },
+                {   # Allow GitHub for cloning addons (HTTPS)
+                    "to": [{"ipBlock": {"cidr": "0.0.0.0/0"}}],
+                    "ports": [{"protocol": "TCP", "port": 443}]
+                }
+            ]
+        }
+    }
+
+
 def service_manifest(tenant_id: str) -> dict[str, Any]:
     return {
         "apiVersion": "v1",
@@ -251,6 +290,7 @@ def ingress_manifest(tenant_id: str) -> dict[str, Any]:
             "namespace": _ns(tenant_id),
             "annotations": {
                 "traefik.ingress.kubernetes.io/router.entrypoints": "web",
+                "traefik.ingress.kubernetes.io/router.middlewares": "kube-system-odoo-headers@kubernetescrd,kube-system-odoo-compress@kubernetescrd",
             },
         },
         "spec": {
@@ -291,6 +331,7 @@ def all_manifests(
     """Return all manifests in apply-order."""
     return [
         namespace_manifest(tenant_id),
+        network_policy_manifest(tenant_id),
         pvc_manifest(tenant_id, storage_gi),
         secret_manifest(tenant_id, db_password, admin_password, app_admin_password),
         configmap_manifest(tenant_id, db_password, admin_password, addons_repos),
