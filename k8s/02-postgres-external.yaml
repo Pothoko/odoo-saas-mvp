@@ -1,0 +1,64 @@
+# =============================================================================
+# k8s/02-postgres-external.yaml
+#
+# Reemplaza el StatefulSet postgres interno (eliminado en Fase 2).
+# Crea un Service sin selector + Endpoints manuales que apuntan a los 3 nodos
+# HAProxy del clúster PostgreSQL HA externo (Fase 1).
+#
+# Uso:
+#   kubectl apply -f k8s/02-postgres-external.yaml
+#
+# Después de aplicar, verificar:
+#   kubectl get endpoints postgres -n aeisoftware
+#   # Debe mostrar: 192.168.0.127,192.168.0.186,192.168.0.226
+# =============================================================================
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: aeisoftware
+  labels:
+    app: postgres
+    managed-by: saas-infra
+  annotations:
+    description: "Proxy al clúster PostgreSQL HA externo via HAProxy"
+spec:
+  # Sin selector — el tráfico va a los Endpoints manuales
+  clusterIP: None
+  ports:
+    - name: primary      # HAProxy → Primary actual (RW directo, sin pool)
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    - name: replica      # HAProxy → Replicas (RO)
+      port: 5001
+      targetPort: 5001
+      protocol: TCP
+    - name: pgbouncer    # HAProxy → PgBouncer pool (HTTP workers Odoo)
+      port: 5002
+      targetPort: 5002
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: postgres
+  namespace: aeisoftware
+  labels:
+    app: postgres
+subsets:
+  - addresses:
+      - ip: 192.168.0.127   # aei_postgresql-1 / blade02
+      - ip: 192.168.0.186   # aei_postgresql-2 / blade01
+      - ip: 192.168.0.226   # aei_postgresql-3 / blade03
+    ports:
+      - name: primary
+        port: 5000
+        protocol: TCP
+      - name: replica
+        port: 5001
+        protocol: TCP
+      - name: pgbouncer
+        port: 5002
+        protocol: TCP

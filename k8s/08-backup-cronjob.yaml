@@ -1,55 +1,12 @@
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: postgres-backup
-  namespace: aeisoftware
-spec:
-  schedule: "0 2 * * *" # Every day at 2:00 AM
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-            - name: backup
-              image: postgres:16-alpine
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  BACKUP_DIR="/backups/$(date +%Y-%m-%d)"
-                  mkdir -p "$BACKUP_DIR"
-                  FILENAME="$BACKUP_DIR/full_backup.sql.gz"
-                  echo "Starting backup to $FILENAME..."
-                  pg_dumpall -h postgres -U odoo | gzip > "$FILENAME"
-                  echo "Backup complete. Cleaning up old backups (older than 7 days)..."
-                  find /backups -type d -mtime +7 -exec rm -rf {} +
-                  echo "Cleanup complete."
-              env:
-                - name: PGPASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: postgres-secret
-                      key: POSTGRES_PASSWORD
-              volumeMounts:
-                - name: backup-volume
-                  mountPath: /backups
-          restartPolicy: OnFailure
-          volumes:
-            - name: backup-volume
-              persistentVolumeClaim:
-                claimName: postgres-backup-pvc
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgres-backup-pvc
-  namespace: aeisoftware
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 100Gi
+# =============================================================================
+# k8s/08-backup-cronjob.yaml — DESHABILITADO en Fase 2
+#
+# Este CronJob hacía backups de PG desde dentro del clúster K3s.
+# En Fase 2 los backups son manejados por pgBackRest en las VMs PG HA
+# con el CronJob de Patroni + S3 (RadosGW) definido en:
+#   infra/postgres-ha/06-setup-pgbackrest.sh
+#
+# NO eliminar — referencia de configuración del backup scheduler anterior.
+# =============================================================================
+#
+# ARCHIVO INACTIVO

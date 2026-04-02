@@ -1,5 +1,9 @@
+# =============================================================================
+# 00-network-policy.yaml — NetworkPolicies namespace aeisoftware
+# Fase 2: PostgreSQL HA externo en 192.168.0.0/24 via HAProxy
+# =============================================================================
 ---
-# Default Deny all traffic in aeisoftware namespace
+# Default Deny — bloquea todo excepto lo explícitamente permitido
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,36 +16,7 @@ spec:
   - Egress
 
 ---
-# Allow Postgres to receive traffic from Odoo pods (any namespace with label managed-by=saas-portal)
-# and from the portal itself.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-postgres-ingress
-  namespace: aeisoftware
-spec:
-  podSelector:
-    matchLabels:
-      app: postgres
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          managed-by: saas-portal
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: aeisoftware
-      podSelector:
-        matchLabels:
-          app: portal
-    ports:
-    - protocol: TCP
-      port: 5432
-
----
-# Allow Portal to receive traffic from Traefik and Odoo Admin
+# Allow Portal: recibe tráfico de Traefik (kube-system) y odoo-admin
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -66,7 +41,7 @@ spec:
       port: 8000
 
 ---
-# Allow Portal and Postgres to talk to DNS (Egress)
+# Allow Egress a DNS (CoreDNS en kube-system)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -87,9 +62,50 @@ spec:
     ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Allow Egress HTTPS externo (GitHub addons, Cloudflare, etc.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-https
+  namespace: aeisoftware
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
   - to:
     - ipBlock:
-        cidr: 0.0.0.0/0 # Allow external API calls for Cloudflare/Github if needed
+        cidr: 0.0.0.0/0
     ports:
     - protocol: TCP
       port: 443
+
+---
+# ── FASE 2 ───────────────────────────────────────────────────────────────────
+# Allow Egress al clúster PostgreSQL HA externo
+# HAProxy escucha en los 3 nodos: 192.168.0.127, .186, .226
+# :5000 Primary (RW directo) | :5001 Replicas (RO) | :5002 PgBouncer (pool)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-pg-ha
+  namespace: aeisoftware
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.0/24
+    ports:
+    - protocol: TCP
+      port: 5000
+    - protocol: TCP
+      port: 5001
+    - protocol: TCP
+      port: 5002

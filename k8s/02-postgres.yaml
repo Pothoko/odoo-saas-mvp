@@ -1,93 +1,15 @@
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgres-data
-  namespace: aeisoftware
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 50Gi
-
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: postgres
-  namespace: aeisoftware
-spec:
-  serviceName: postgres
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:16
-          command: ["docker-entrypoint.sh"]
-          args: ["-c", "config_file=/etc/postgresql/postgresql.conf"]
-          ports:
-            - containerPort: 5432
-          env:
-            - name: POSTGRES_DB
-              value: postgres
-            - name: POSTGRES_USER
-              value: odoo
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_PASSWORD
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
-          volumeMounts:
-            - name: postgres-data
-              mountPath: /var/lib/postgresql/data
-            - name: postgres-config
-              mountPath: /etc/postgresql
-          readinessProbe:
-            exec:
-              command: [pg_isready, -U, odoo]
-            initialDelaySeconds: 10
-            periodSeconds: 5
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 2
-              memory: 4Gi
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        fsGroup: 999
-      volumes:
-        - name: postgres-data
-          persistentVolumeClaim:
-            claimName: postgres-data
-        - name: postgres-config
-          configMap:
-            name: postgres-config
-            items:
-              - key: postgresql.conf
-                path: postgresql.conf
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: aeisoftware
-spec:
-  selector:
-    app: postgres
-  ports:
-    - port: 5432
-      targetPort: 5432
+# =============================================================================
+# k8s/02-postgres.yaml — DESHABILITADO en Fase 2
+#
+# Este StatefulSet fue el PostgreSQL interno de K3s (single-node).
+# En Fase 2 fue reemplazado por:
+#   k8s/02-postgres-external.yaml  — Service + Endpoints al clúster PG HA
+#
+# NO eliminar este archivo en caso de necesitar rollback.
+# Para reactivar: renombrar este archivo y eliminar 02-postgres-external.yaml
+# =============================================================================
+#
+# ARCHIVO INACTIVO — apply-manifests.sh no aplica archivos sin extensión .yaml
+# Renombrado a .yaml.disabled para preservar el historial.
+#
+# Contenido original preservado en git (ver historial de commits).

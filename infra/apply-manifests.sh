@@ -51,7 +51,7 @@ set +o allexport
 
 # Validate required variables are set and not placeholders
 missing=()
-for var in DB_PASSWORD ADMIN_PASSWD API_KEY; do
+for var in DB_PASSWORD ADMIN_PASSWD API_KEY CLOUDFLARE_TUNNEL_TOKEN; do
   val="${!var:-}"
   if [[ -z "$val" || "$val" == "change_me" ]]; then
     missing+=("$var")
@@ -81,7 +81,7 @@ metadata:
   namespace: odoo-admin
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: local-path
+  storageClassName: ceph-rbd
   resources:
     requests:
       storage: 20Gi
@@ -128,20 +128,19 @@ stringData:
   ADMIN_PASSWD: "${ADMIN_PASSWD}"
 EOF
 
-# Apply Cloudflare tunnel token if set
-if [[ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" && "${CLOUDFLARE_TUNNEL_TOKEN}" != "change_me" ]]; then
-  echo "==> Applying cloudflare-secret …"
-  cat <<EOF | kubectl apply $KUBECTL_ARGS -f -
+# Cloudflare tunnel token — inyectar en namespace cloudflare (no en aeisoftware)
+echo "==> Aplicando cloudflared-token en namespace cloudflare ..."
+kubectl create namespace cloudflare --dry-run=client -o yaml | kubectl apply $KUBECTL_ARGS -f - 2>/dev/null || true
+cat <<EOF | kubectl apply $KUBECTL_ARGS -f -
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cloudflare-secret
-  namespace: aeisoftware
+  name: cloudflared-token
+  namespace: cloudflare
 type: Opaque
 stringData:
   TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
 EOF
-fi
 
 # ── Apply all other manifests (secrets files are deliberately skipped) ────────
 echo "==> Applying manifests …"
@@ -159,14 +158,15 @@ for f in "$REPO_ROOT"/k8s/0*.yaml; do
   kubectl apply $KUBECTL_ARGS --validate=false -f "$f"
 done
 
-# ── Wait for core services ────────────────────────────────────────────────────
+# ── Verificar servicios ──────────────────────────────────────────────────────
 if ! $DRY_RUN; then
-  echo "==> Waiting for postgres to be ready …"
-  kubectl -n aeisoftware rollout status statefulset/postgres --timeout=120s
+  echo "==> Verificando endpoints de PostgreSQL HA..."
+  kubectl -n aeisoftware get endpoints postgres || true
 
   echo ""
-  echo "==> All manifests applied successfully."
+  echo "==> Todos los manifests aplicados correctamente."
   echo ""
-  echo "    Portal:     http://portal.aeisoftware.com"
-  echo "    Admin Odoo: http://admin.aeisoftware.com"
+  echo "    Portal:     https://portal.aeisoftware.com"
+  echo "    Admin Odoo: https://admin.aeisoftware.com"
+  echo "    VIP K3s:    192.168.0.150"
 fi

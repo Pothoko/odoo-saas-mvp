@@ -17,6 +17,12 @@ venv/
 
 # K8s secrets with real values — managed via .secrets.env + deploy scripts
 
+# K3s HA — generados por deploy-k3s-cluster.sh
+infra/k3s-ha/.env
+infra/k3s-ha/.kubeconfig
+infra/postgres-ha/.env
+infra/postgres-ha/.secrets.generated
+
 
 # Editor
 .idea/

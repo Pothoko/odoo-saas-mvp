@@ -30,7 +30,12 @@ metadata:
   name: portal
   namespace: aeisoftware
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: portal
@@ -49,7 +54,9 @@ spec:
             - name: POSTGRES_HOST
               value: postgres.aeisoftware.svc.cluster.local
             - name: POSTGRES_PORT
-              value: "5432"
+              value: "5002"                 # PgBouncer pooled → HTTP workers
+            - name: POSTGRES_PORT_PRIMARY
+              value: "5000"                 # Primary directo → operaciones admin
             - name: POSTGRES_ADMIN_USER
               value: odoo
             - name: POSTGRES_ADMIN_PASSWORD

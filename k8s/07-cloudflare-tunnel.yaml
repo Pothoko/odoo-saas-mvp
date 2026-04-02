@@ -5,21 +5,16 @@
 #   Zero Trust > Networks > Tunnels > <este-tunnel> > Edit > Public Hostname
 #   Subdomain: admin | Domain: aeisoftware.com | Service: http://odoo-admin.odoo.svc.cluster.local:8069
 #
-# Aplicar: kubectl apply -f k8s/07-cloudflare-tunnel.yaml
+# ⚠️  El Secret cloudflared-token se crea en apply-manifests.sh desde .secrets.env
+# NO incluir el token en este archivo — está en .gitignore
+# El token se inyecta con:
+#   kubectl -n cloudflare create secret generic cloudflared-token \
+#     --from-literal=TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN}" --dry-run=client -o yaml | kubectl apply -f -
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
   name: cloudflare
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloudflared-token
-  namespace: cloudflare
-type: Opaque
-stringData:
-  TUNNEL_TOKEN: "eyJhIjoiMjc1NWI0MWI4MTFkYzlhZmM3Mzk2ZWQ1ZDFlMjc2NDQiLCJ0IjoiMzgyOWEyMDYtZjdlZC00ZTZhLWI3NWQtOTU0NDQ0ZWFhNGE0IiwicyI6Ik1tUXpOelpsWWpjdFpEVmtaUzAwTlRKbExXSTNOemt0TldZME9Ea3daREU1TUdSbCJ9"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,9 +24,11 @@ metadata:
   labels:
     app: cloudflared
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: cloudflared
