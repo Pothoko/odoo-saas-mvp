@@ -17,7 +17,7 @@ metadata:
   namespace: odoo-admin
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: local-path
+  storageClassName: ceph-rbd
   resources:
     requests:
       storage: 20Gi
@@ -167,13 +167,13 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
             failureThreshold: 30
-            resources:
-              requests:
-                cpu: 100m
-                memory: 512Mi
-              limits:
-                cpu: 1
-                memory: 2Gi
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 2Gi
       securityContext:
         runAsNonRoot: true
         runAsUser: 101

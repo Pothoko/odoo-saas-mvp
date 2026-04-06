@@ -1,0 +1,82 @@
+networks:
+  saas-dev:
+
+
+volumes:
+  postgres-data:
+  odoo-data:
+
+
+services:
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    networks: [ saas-dev ]
+    env_file: .env.dev
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U odoo" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Odoo 18 ──────────────────────────────────────────────────────────────────
+  # Addons se montan directamente desde el código fuente local (sin init container).
+  # Para cambios de modelo: make dev-install
+  odoo:
+    image: odoo:18
+    restart: unless-stopped
+    networks: [ saas-dev ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "18069:8069"
+      - "18072:8072"
+    volumes:
+      - odoo-data:/var/lib/odoo
+      # Config dev (apunta a postgres:5432)
+      - ./k8s/dev/odoo-dev.conf:/etc/odoo/odoo.conf:ro
+      # Addons locales: bind-mount directo al código fuente
+      - ./odoo_k8s_saas:/mnt/extra-addons/odoo_k8s_saas:ro
+      - ./odoo_k8s_saas_subscription:/mnt/extra-addons/odoo_k8s_saas_subscription:ro
+      - ./payment_qr_mercantil:/mnt/extra-addons/payment_qr_mercantil:ro
+      # Addon externo: clonado con `make dev-clone-deps`
+      - ./vendor/subscription_oca:/mnt/extra-addons/subscription_oca:ro
+    environment:
+      - SAAS_PORTAL_URL=http://portal:8000
+      - SAAS_PORTAL_KEY=dev-api-key-local
+
+  # ── Portal FastAPI ────────────────────────────────────────────────────────────
+  # Construido localmente (no desde GHCR).
+  # Hot-reload activo: los cambios en ./portal se reflejan sin reiniciar.
+  # KUBECONFIG apunta a K3s local (generado con `make dev-kubeconfig`).
+  portal:
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [ saas-dev ]
+    # Necesario para que el contenedor resuelva host.docker.internal → IP del host
+    # y así el SDK de kubernetes llegue al API server de K3s en 6443.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file: .env.dev
+    environment:
+      - API_KEY=dev-api-key-local
+      - KUBECONFIG=/etc/k3s-docker.yaml
+    volumes:
+      # Código fuente montado para hot-reload
+      - ./portal:/app
+      # Kubeconfig adaptado para Docker (127.0.0.1 → host.docker.internal)
+      # Generar con: make dev-kubeconfig
+      - ${HOME}/.kube/k3s-docker.yaml:/etc/k3s-docker.yaml:ro
+    ports:
+      - "8000:8000"
+    # Sobreescribe el CMD del Dockerfile para activar hot-reload
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]

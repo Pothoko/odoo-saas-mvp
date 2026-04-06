@@ -147,12 +147,18 @@ echo "==> Applying manifests …"
 for f in "$REPO_ROOT"/k8s/0*.yaml; do
   filename=$(basename "$f")
 
-  # Skip 01-secrets.yaml — it is now a placeholder-only file.
-  # All secrets were already applied above from .secrets.env.
-  if [[ "$filename" == "01-secrets.yaml" ]]; then
-    echo "  skipping $filename (secrets applied from .secrets.env above)"
-    continue
-  fi
+  # Skip files that are disabled placeholders (no K8s objects inside).
+  # 01-secrets.yaml        → secrets applied from .secrets.env above
+  # 02-postgres.yaml       → replaced by 02-postgres-external.yaml (PG HA externo)
+  # 02-cloudflare-tunnel.yaml → legacy, token hardcodeado; usar 07-cloudflare-tunnel.yaml
+  # 03-cloudflared.yaml    → legacy, duplicado; cloudflared en ns cloudflare cubre esto
+  # 08-backup-cronjob.yaml → pgBackRest en VMs PG cubre el backup
+  case "$filename" in
+    01-secrets.yaml|02-postgres.yaml|02-cloudflare-tunnel.yaml|03-cloudflared.yaml|08-backup-cronjob.yaml)
+      echo "  skipping $filename (disabled placeholder)"
+      continue
+      ;;
+  esac
 
   echo "  applying $f …"
   kubectl apply $KUBECTL_ARGS --validate=false -f "$f"

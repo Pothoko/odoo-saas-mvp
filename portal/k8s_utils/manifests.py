@@ -15,10 +15,18 @@ from typing import Any
 
 BASE_DOMAIN = os.getenv("BASE_DOMAIN", "aeisoftware.com")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres.aeisoftware.svc.cluster.local")
-POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5002"))          # PgBouncer pooled
+# Host que usarán los pods de Odoo en K3s (puede diferir del host que usa el portal)
+# En dev: IP del host donde corre Docker (ej. 10.91.4.18)
+POSTGRES_HOST_K8S = os.getenv("POSTGRES_HOST_K8S", POSTGRES_HOST)
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5002"))          # Portal → Postgres
+_default_port_k8s = os.getenv("POSTGRES_PORT_K8S") or os.getenv("POSTGRES_PORT", "5002")
+POSTGRES_PORT_K8S = int(_default_port_k8s)                        # Pods → Postgres
 POSTGRES_PORT_PRIMARY = int(os.getenv("POSTGRES_PORT_PRIMARY", "5000"))  # Primary directo
+_default_port_primary_k8s = os.getenv("POSTGRES_PORT_PRIMARY_K8S") or os.getenv("POSTGRES_PORT_PRIMARY", "5000")
+POSTGRES_PORT_PRIMARY_K8S = int(_default_port_primary_k8s)
 POSTGRES_USER = os.getenv("POSTGRES_USER", "odoo")
 ODOO_IMAGE = os.getenv("ODOO_IMAGE", "odoo:18")
+STORAGE_CLASS_NAME = os.getenv("STORAGE_CLASS_NAME", "ceph-rbd")
 
 ODOO_HEADERS_MIDDLEWARE = "kube-system-odoo-headers@kubernetescrd"
 
@@ -48,7 +56,7 @@ def pvc_manifest(tenant_id: str, storage_gi: int = 10) -> dict[str, Any]:
         },
         "spec": {
             "accessModes": ["ReadWriteOnce"],
-            "storageClassName": "ceph-rbd",
+            "storageClassName": STORAGE_CLASS_NAME,
             "resources": {"requests": {"storage": f"{storage_gi}Gi"}},
         },
     }
@@ -84,8 +92,8 @@ def configmap_manifest(tenant_id: str, db_password: str, admin_password: str, ad
     addons_json_str = json.dumps(addons_repos)
 
     conf = f"""[options]
-db_host = {POSTGRES_HOST}
-db_port = {POSTGRES_PORT}
+db_host = {POSTGRES_HOST_K8S}
+db_port = {POSTGRES_PORT_K8S}
 db_user = odoo-{tenant_id}
 db_password = {db_password}
 admin_passwd = {admin_password}
@@ -127,8 +135,8 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
     _env = [
         {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
         {"name": "APP_ADMIN_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "APP_ADMIN_PASSWORD"}}},
-        {"name": "HOST",     "value": POSTGRES_HOST},
-        {"name": "PORT",     "value": str(POSTGRES_PORT)},          # 5002 pooled
+        {"name": "HOST",     "value": POSTGRES_HOST_K8S},
+        {"name": "PORT",     "value": str(POSTGRES_PORT_K8S)},
         {"name": "USER",     "value": pg_user},
         {"name": "PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
     ]
@@ -136,8 +144,8 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
     _init_env = [
         {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
         {"name": "APP_ADMIN_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "APP_ADMIN_PASSWORD"}}},
-        {"name": "HOST",     "value": POSTGRES_HOST},
-        {"name": "PORT",     "value": str(POSTGRES_PORT_PRIMARY)},  # 5000 primary directo
+        {"name": "HOST",     "value": POSTGRES_HOST_K8S},
+        {"name": "PORT",     "value": str(POSTGRES_PORT_PRIMARY_K8S)},
         {"name": "USER",     "value": pg_user},
         {"name": "PASSWORD", "valueFrom": {"secretKeyRef": {"name": "odoo-secret", "key": "DB_PASSWORD"}}},
     ]
@@ -161,6 +169,7 @@ def deployment_manifest(tenant_id: str, odoo_version: str = "18.0", custom_image
                         {
                             "name": "clone-addons",
                             "image": "python:3.10-alpine",
+                            "securityContext": {"runAsUser": 0, "runAsNonRoot": False},  # root para apk add
                             "command": ["/bin/sh", "-c"],
                             "args": [
                                 "apk add --no-cache git && python3 -c '\n"

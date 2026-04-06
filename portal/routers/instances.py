@@ -9,6 +9,7 @@ import logging
 import os
 import secrets
 import string
+from typing import Optional
 
 import psycopg2
 from fastapi import APIRouter, HTTPException
@@ -49,7 +50,7 @@ class InstanceResponse(BaseModel):
     url: str
     status: str
     user_count: int = 0
-    app_admin_password: str = None
+    app_admin_password: Optional[str] = None
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
@@ -205,8 +206,8 @@ def start_instance(tenant_id: str):
 
 
 class ConfigUpdateRequest(BaseModel):
-    odoo_conf: str = None
-    addons_repos: list = None
+    odoo_conf: Optional[str] = None
+    addons_repos: Optional[list] = None
 
 @router.get("/{tenant_id}/config")
 def get_instance_config(tenant_id: str):
@@ -222,8 +223,8 @@ def get_instance_config(tenant_id: str):
     if "addons.json" in data:
         try:
             addons = json.loads(data["addons.json"])
-        except:
-            pass
+        except Exception as e:
+            logger.warning("Could not parse addons.json for %s: %s", tenant_id, e)
     return {"odoo_conf": data.get("odoo.conf", ""), "addons_repos": addons}
 
 @router.put("/{tenant_id}/config")
