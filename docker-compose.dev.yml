@@ -70,9 +70,13 @@ services:
     environment:
       - API_KEY=dev-api-key-local
       - KUBECONFIG=/etc/k3s-docker.yaml
+      - CORS_ORIGINS=http://localhost:8000,http://localhost:18069
+      - LOG_LEVEL=INFO
     volumes:
       # Código fuente montado para hot-reload
       - ./portal:/app
+      # Archivos estáticos del frontend (hot-reload)
+      - ./portal/static:/app/static
       # Kubeconfig adaptado para Docker (127.0.0.1 → host.docker.internal)
       # Generar con: make dev-kubeconfig
       - ${HOME}/.kube/k3s-docker.yaml:/etc/k3s-docker.yaml:ro

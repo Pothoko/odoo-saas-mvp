@@ -31,8 +31,9 @@ STORAGE_CLASS_NAME = os.getenv("STORAGE_CLASS_NAME", "ceph-rbd")
 ODOO_HEADERS_MIDDLEWARE = "kube-system-odoo-headers@kubernetescrd"
 
 
-def namespace_manifest(tenant_id: str) -> dict[str, Any]:
+def namespace_manifest(tenant_id: str, plan: str = "starter", odoo_version: str = "18.0") -> dict[str, Any]:
     """Namespace for one tenant: odoo-<tenant_id>"""
+    from datetime import datetime, timezone
     return {
         "apiVersion": "v1",
         "kind": "Namespace",
@@ -41,6 +42,12 @@ def namespace_manifest(tenant_id: str) -> dict[str, Any]:
             "labels": {
                 "managed-by": "saas-portal",
                 "tenant": tenant_id,
+                "plan": plan,
+            },
+            "annotations": {
+                "saas-portal/plan": plan,
+                "saas-portal/odoo-version": odoo_version,
+                "saas-portal/created-at": datetime.now(timezone.utc).isoformat(),
             },
         },
     }
@@ -84,7 +91,7 @@ def secret_manifest(tenant_id: str, db_password: str, admin_password: str, app_a
     }
 
 
-def configmap_manifest(tenant_id: str, db_password: str, admin_password: str, addons_repos: list = None) -> dict[str, Any]:
+def configmap_manifest(tenant_id: str, db_password: str, admin_password: str, addons_repos: list | None = None) -> dict[str, Any]:
     """Odoo config file per tenant — passwords are embedded at provision time."""
     db_name = _dbname(tenant_id)
     addons_repos = addons_repos or []
@@ -310,8 +317,9 @@ def service_manifest(tenant_id: str) -> dict[str, Any]:
 
 
 def ingress_manifest(tenant_id: str) -> dict[str, Any]:
-    """Standard K8s Ingress for Traefik."""
+    """HTTPS Ingress for Traefik with websecure entrypoint."""
     subdomain = tenant_id  # e.g. demo → demo.aeisoftware.com
+    host = f"{subdomain}.{BASE_DOMAIN}"
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "Ingress",
@@ -319,15 +327,17 @@ def ingress_manifest(tenant_id: str) -> dict[str, Any]:
             "name": "odoo-ingress",
             "namespace": _ns(tenant_id),
             "annotations": {
-                "traefik.ingress.kubernetes.io/router.entrypoints": "web",
+                "traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
                 "traefik.ingress.kubernetes.io/router.middlewares": "kube-system-odoo-headers@kubernetescrd,kube-system-odoo-compress@kubernetescrd",
+                "traefik.ingress.kubernetes.io/router.tls": "true",
             },
         },
         "spec": {
             "ingressClassName": "traefik",
+            "tls": [{"hosts": [host]}],
             "rules": [
                 {
-                    "host": f"{subdomain}.{BASE_DOMAIN}",
+                    "host": host,
                     "http": {
                         "paths": [
                             {
@@ -357,14 +367,15 @@ def all_manifests(
     addons_repos: list | None = None,
     odoo_version: str = "18.0",
     custom_image: str | None = None,
+    plan: str = "starter",
 ) -> list[dict]:
     """Return all manifests in apply-order."""
     return [
-        namespace_manifest(tenant_id),
+        namespace_manifest(tenant_id, plan=plan, odoo_version=odoo_version),
         network_policy_manifest(tenant_id),
         pvc_manifest(tenant_id, storage_gi),
         secret_manifest(tenant_id, db_password, admin_password, app_admin_password),
-        configmap_manifest(tenant_id, db_password, admin_password, addons_repos),
+        configmap_manifest(tenant_id, db_password, admin_password, addons_repos or []),
         deployment_manifest(tenant_id, odoo_version, custom_image),
         service_manifest(tenant_id),
         ingress_manifest(tenant_id),

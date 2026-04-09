@@ -2,7 +2,8 @@ COMPOSE = docker compose -f docker-compose.dev.yml
 
 .PHONY: dev-kubeconfig dev-clone-deps dev-up dev-down dev-reset \
         dev-install dev-rebuild-portal dev-logs logs-odoo logs-portal \
-        logs-postgres dev-psql odoo-shell portal-shell help
+        logs-postgres dev-psql odoo-shell portal-shell \
+        test portal-check dev-open-ui help
 
 dev-kubeconfig: ## Genera k3s-docker.yaml con host.docker.internal para el portal
 	@mkdir -p ~/.kube
@@ -67,6 +68,17 @@ portal-shell: ## Bash en el contenedor Portal
 
 dev-psql: ## psql en Postgres (base admin)
 	$(COMPOSE) exec postgres psql -U odoo -d admin
+
+test: ## Ejecuta la suite de tests del portal
+	@echo "Ejecutando tests del portal…"
+	$(COMPOSE) exec portal sh -c "cd /app && pip install -q -r requirements.txt && python -m pytest tests/ -v --tb=short"
+
+portal-check: ## Sintaxis / import check rápido del portal
+	$(COMPOSE) exec portal python -c "import main; print('OK: portal importa sin errores')"
+
+dev-open-ui: ## Abre el dashboard del portal en el navegador
+	@xdg-open http://localhost:8000/ui 2>/dev/null || open http://localhost:8000/ui 2>/dev/null || \
+	  echo "Abre manualmente: http://localhost:8000/ui"
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
