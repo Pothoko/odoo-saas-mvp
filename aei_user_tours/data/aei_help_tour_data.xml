@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="0">
+
+    <!-- ───────────────── Tours iniciales ───────────────── -->
+
+    <record id="tour_shop_purchase" model="aei.help.tour">
+        <field name="name">¿Cómo hago una compra?</field>
+        <field name="tour_name">aei_tour_shop_purchase</field>
+        <field name="description">Te guío paso a paso: elegir plan, agregar al carrito, completar checkout y pagar con QR.</field>
+        <field name="icon">fa-shopping-cart</field>
+        <field name="category">shop</field>
+        <field name="target">frontend</field>
+        <field name="landing_url">/shop</field>
+        <field name="duration_min">3</field>
+        <field name="sequence">10</field>
+        <field name="keywords">comprar, compra, comprar plan, hacer compra, adquirir, contratar, suscribir, suscripcion, plan, carrito, checkout</field>
+        <field name="intent_phrases">como hago una compra
+como compro un plan
+quiero comprar
+quiero contratar un plan
+como adquiero el servicio
+quiero suscribirme
+no se como pagar
+como pago</field>
+    </record>
+
+    <record id="tour_qr_payment" model="aei.help.tour">
+        <field name="name">Pagar con código QR (Mercantil)</field>
+        <field name="tour_name">aei_tour_qr_payment</field>
+        <field name="description">Aprende a pagar escaneando el QR con tu app del banco. Te muestro cómo confirmar el pago.</field>
+        <field name="icon">fa-qrcode</field>
+        <field name="category">billing</field>
+        <field name="target">frontend</field>
+        <field name="landing_url"></field>
+        <field name="duration_min">2</field>
+        <field name="sequence">20</field>
+        <field name="keywords">qr, codigo qr, pagar qr, escanear, mercantil, banco</field>
+        <field name="intent_phrases">como pago con qr
+como escaneo el qr
+como uso el codigo qr
+no funciona el qr
+como confirmo el pago qr</field>
+    </record>
+
+    <record id="tour_saas_first_instance" model="aei.help.tour">
+        <field name="name">Crear tu primera instancia SaaS</field>
+        <field name="tour_name">aei_tour_saas_first_instance</field>
+        <field name="description">Te enseño a aprovisionar un tenant Odoo nuevo en Kubernetes desde la admin.</field>
+        <field name="icon">fa-rocket</field>
+        <field name="category">admin</field>
+        <field name="target">backend</field>
+        <field name="landing_url">/odoo/action-odoo_k8s_saas.action_saas_instances</field>
+        <field name="duration_min">4</field>
+        <field name="sequence">30</field>
+        <field name="keywords">instancia, tenant, crear instancia, aprovisionar, saas, nuevo cliente, provision</field>
+        <field name="intent_phrases">como creo una instancia
+como aprovisiono un tenant
+quiero crear un nuevo cliente saas
+crear instancia nueva
+como agrego un tenant</field>
+    </record>
+
+    <!-- ───────────────── Acción + menú del Centro de Ayuda ───────────────── -->
+
+    <record id="action_aei_help_tour" model="ir.actions.act_window">
+        <field name="name">Centro de Ayuda AEI</field>
+        <field name="res_model">aei.help.tour</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No hay tours configurados todavía.</p>
+            <p>Cada tour es una guía interactiva que resalta elementos de pantalla y lleva al usuario paso a paso.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_aei_help_root"
+              name="Ayuda AEI"
+              sequence="100"/>
+
+    <menuitem id="menu_aei_help_tours"
+              name="Centro de Ayuda"
+              parent="menu_aei_help_root"
+              action="action_aei_help_tour"
+              sequence="10"/>
+
+</odoo>

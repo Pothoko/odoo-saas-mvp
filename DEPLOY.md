@@ -281,3 +281,27 @@ kubectl logs -n backup-system -l app=pg-logical-dump -f
 - La BD `postgres` es la instancia admin. Las BDs de clientes SaaS son dinámicas (creadas por el portal).
 - El campo `odoo.conf` se renderiza en runtime vía `sed` (placeholders `REPLACE_*`) — **no hay secretos en git**.
 - En modo `state=test` (Prueba) el proveedor QR Mercantil **no llama al banco** y usa QRs demo SVG.
+- ⚠️ **Operacional — provider QR en `state=test`:** el endpoint `/payment/qr_mercantil/simulate`
+  marca la transacción como pagada **sin** llamar al banco, y está gateado únicamente por
+  `provider_id.state == 'test'`. **Nunca dejar un provider QR Mercantil en `state=test`
+  publicado en internet** (producción debe usar `state=enabled`). Si necesitas hacer demos
+  sobre staging público, hazlo con un provider dedicado y desactívalo apenas termines.
+
+### Asistente AEI (`aei_user_tours`)
+
+Widget flotante "AEI" que aparece en backend y website (`/shop`, `/checkout`, `/payment/...`)
+para guiar a usuarios paso a paso via `web_tour`. Por defecto matchea la pregunta del
+usuario contra `keywords` + `intent_phrases` de los registros `aei.help.tour` (heurística
+local, gratis).
+
+**Habilitar LLM (Kimi/Moonshot, opcional, ~0.001 USD/consulta):**
+```
+# Settings → Parámetros técnicos → Parámetros del sistema
+aei_user_tours.llm_provider   = moonshot
+aei_user_tours.llm_api_key    = <Bearer token de moonshot.ai>
+aei_user_tours.llm_base_url   = https://api.moonshot.ai/v1   # default
+aei_user_tours.llm_model      = moonshot-v1-8k                # default
+```
+Cualquier endpoint OpenAI-compatible funciona (Together, Groq, DeepSeek, OpenAI). El LLM
+sólo se llama cuando la heurística local no es concluyente (top_score ≤ 8) — la mayoría
+de las consultas se resuelven sin red.

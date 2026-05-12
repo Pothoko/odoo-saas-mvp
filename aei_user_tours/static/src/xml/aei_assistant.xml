@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="aei_user_tours.AeiAssistant">
+        <div class="o_aei_assistant">
+            <!-- Botoncito flotante -->
+            <button class="o_aei_fab"
+                    t-on-click="() => this.toggle()"
+                    t-att-title="state.open ? 'Cerrar AEI' : 'Pregúntale a AEI'">
+                <span t-if="!state.open" class="o_aei_fab_label">AEI</span>
+                <i t-if="state.open" class="fa fa-times"/>
+            </button>
+
+            <!-- Panel del chat -->
+            <div t-if="state.open" class="o_aei_panel">
+                <div class="o_aei_header">
+                    <div class="o_aei_header_title">
+                        <strong>AEI</strong>
+                        <span class="o_aei_header_sub">Tu asistente</span>
+                    </div>
+                    <button class="o_aei_close" t-on-click="() => this.toggle()" title="Cerrar">
+                        <i class="fa fa-times"/>
+                    </button>
+                </div>
+
+                <div class="o_aei_messages">
+                    <t t-foreach="state.messages" t-as="msg" t-key="msg_index">
+                        <div t-attf-class="o_aei_msg o_aei_msg_#{msg.role}">
+                            <div class="o_aei_msg_bubble">
+                                <t t-esc="msg.text"/>
+                            </div>
+                            <div t-if="msg.suggestions and msg.suggestions.length" class="o_aei_suggestions">
+                                <t t-foreach="msg.suggestions" t-as="sug" t-key="sug.id">
+                                    <div class="o_aei_card" t-on-click="() => this.launchTour(sug)">
+                                        <i t-attf-class="fa #{sug.icon or 'fa-play-circle'} me-2"/>
+                                        <div class="o_aei_card_body">
+                                            <div class="o_aei_card_title"><t t-esc="sug.name"/></div>
+                                            <div t-if="sug.description" class="o_aei_card_desc">
+                                                <t t-esc="sug.description"/>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-sm btn-primary">
+                                            <i class="fa fa-play"/> Guíame
+                                        </button>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </t>
+                    <div t-if="state.loading" class="o_aei_msg o_aei_msg_bot">
+                        <div class="o_aei_msg_bubble o_aei_typing">
+                            <span/><span/><span/>
+                        </div>
+                    </div>
+                </div>
+
+                <form class="o_aei_input_row" t-on-submit="(ev) => this.onSubmit(ev)">
+                    <input type="text"
+                           class="form-control o_aei_input"
+                           t-ref="input"
+                           t-model="state.query"
+                           placeholder="Pregúntame: ¿cómo hago una compra?"
+                           autocomplete="off"/>
+                    <button type="submit" class="btn btn-primary" t-att-disabled="state.loading">
+                        <i class="fa fa-paper-plane"/>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </t>
+
+</templates>

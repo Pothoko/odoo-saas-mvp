@@ -77,6 +77,7 @@ class QRMercantilController(http.Controller):
         except Exception:
             _logger.exception("QR Mercantil: error procesando webhook")
             return {'status': 'error', 'message': 'processing error'}
+        return {'status': 'ok'}
 
     # ── Demo: simulate a payment without calling the bank ───────────────────
 

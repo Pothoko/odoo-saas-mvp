@@ -24,7 +24,7 @@ Three layers work together:
 2. **Odoo Addons** — Three custom modules installed in the admin Odoo instance:
    - `odoo_k8s_saas` — Core SaaS admin UI. Model `saas.instance` tracks tenants through states: draft → provisioning → ready → suspended → pending_delete → error → deleted. Cron syncs state from K8s every 2 min.
    - `odoo_k8s_saas_subscription` — Bridges OCA subscriptions to SaaS provisioning. Hooks on `stage_id`/`template_id` changes trigger provision/upgrade/suspend. Auto-install addon.
-   - `payment_qr_mercantil` — QR payment via Banco Mercantil MC4 API. JWT-cached auth, webhook-driven confirmation, 2s polling on frontend.
+   - `payment_qr_mercantil` — QR payment via Banco Mercantil MC4 API. JWT-cached auth, webhook-driven confirmation, 3s polling on frontend (with 10s server-side throttle to bank API).
 
 3. **Kubernetes Manifests** (`k8s/`) — Applied in lexical order (00-08). Each tenant gets its own namespace (`odoo-{tenant_id}`), PVC, secrets, deployment, service, ingress, and network policy.
 
