@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Kanban: tarjetas con botón "Iniciar tour" -->
+    <record id="view_aei_help_tour_kanban" model="ir.ui.view">
+        <field name="name">aei.help.tour.kanban</field>
+        <field name="model">aei.help.tour</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_dashboard" sample="1">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="description"/>
+                <field name="icon"/>
+                <field name="category"/>
+                <field name="duration_min"/>
+                <field name="tour_name"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click o_kanban_card_manage_pane d-flex flex-column"
+                             style="padding:16px; min-height:180px;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i t-attf-class="fa fa-2x #{record.icon.raw_value or 'fa-play-circle'} text-primary me-3"/>
+                                <div>
+                                    <strong class="o_kanban_record_title">
+                                        <field name="name"/>
+                                    </strong>
+                                    <div>
+                                        <span class="badge text-bg-light"><field name="category"/></span>
+                                        <span class="text-muted ms-2">
+                                            <i class="fa fa-clock-o"/> ~<field name="duration_min"/> min
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-muted flex-grow-1">
+                                <field name="description"/>
+                            </div>
+                            <div class="mt-3">
+                                <button name="action_launch_tour" type="object"
+                                        class="btn btn-primary">
+                                    <i class="fa fa-play me-1"/> Iniciar tour
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_aei_help_tour_list" model="ir.ui.view">
+        <field name="name">aei.help.tour.list</field>
+        <field name="model">aei.help.tour</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="tour_name"/>
+                <field name="category"/>
+                <field name="target"/>
+                <field name="duration_min"/>
+                <field name="active" widget="boolean_toggle"/>
+                <button name="action_launch_tour" type="object" string="▶ Iniciar" class="btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_aei_help_tour_form" model="ir.ui.view">
+        <field name="name">aei.help.tour.form</field>
+        <field name="model">aei.help.tour</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_launch_tour" type="object"
+                            string="▶ Iniciar tour" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Ej. Cómo hacer una compra"/></h1>
+                    </div>
+                    <group>
+                        <group string="Configuración">
+                            <field name="tour_name" placeholder="aei_tour_..."/>
+                            <field name="icon"/>
+                            <field name="category"/>
+                            <field name="target"/>
+                            <field name="landing_url" placeholder="/shop o /odoo/..."/>
+                            <field name="duration_min"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Búsqueda del agente AEI">
+                            <field name="keywords"
+                                   placeholder="comprar, pagar, qr, ..."/>
+                            <field name="intent_phrases"
+                                   placeholder="una frase por línea"/>
+                        </group>
+                    </group>
+                    <group string="Descripción">
+                        <field name="description" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+</odoo>
