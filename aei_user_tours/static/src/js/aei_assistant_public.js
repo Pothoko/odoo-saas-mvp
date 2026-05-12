@@ -58,7 +58,12 @@
     }
 
     function _startTour(tourName) {
-        // Intenta arrancar vía tour_service moderno; si no, vía API histórica.
+        // Primero intenta el overlay visual propio (cursor flotante).
+        if (window.AEIGuide && (window.AEI_GUIDES || {})[tourName]) {
+            window.AEIGuide.start(tourName);
+            return true;
+        }
+        // Fallback: web_tour (sólo si nuestro overlay no está cargado).
         const svc = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.tour_service;
         if (svc?.startTour) {
             svc.startTour(tourName, { mode: "manual" });
@@ -68,14 +73,22 @@
             window.odoo.startTour(tourName);
             return true;
         }
+        console.warn("AEI: no se pudo iniciar el tour", tourName);
         return false;
     }
 
     function launchTour(suggestion) {
+        // Si nuestro overlay ya conoce el tour, lo arranca acá mismo —
+        // el motor maneja la navegación entre páginas por sí solo vía
+        // `url` en cada paso + sessionStorage.
+        if (window.AEIGuide && (window.AEI_GUIDES || {})[suggestion.tour_name]) {
+            setTimeout(() => _startTour(suggestion.tour_name), 150);
+            return;
+        }
+        // Fallback antiguo (web_tour): redirige al landing_url si es necesario.
         const sameOrigin =
             !suggestion.landing_url ||
             window.location.pathname.startsWith(suggestion.landing_url);
-
         if (suggestion.landing_url && !sameOrigin) {
             sessionStorage.setItem(
                 PENDING_KEY,
@@ -84,7 +97,6 @@
             window.location.href = suggestion.landing_url;
             return;
         }
-        // Pequeño delay para asegurar que la página está estable.
         setTimeout(() => _startTour(suggestion.tour_name), 200);
     }
 

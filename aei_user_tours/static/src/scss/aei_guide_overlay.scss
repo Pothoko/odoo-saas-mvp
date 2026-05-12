@@ -1,0 +1,210 @@
+/* AEI Guide Overlay — cursor virtual + anillo pulsante + tooltip flotante */
+
+.aei-guide-root {
+    position: fixed;
+    inset: 0;
+    pointer-events: none; /* el overlay no roba clicks; tooltip & cursor lo activan abajo */
+    z-index: 2147483640; /* casi tope, por arriba de modals de Odoo */
+    font-family: var(--font-family-sans-serif, system-ui, sans-serif);
+
+    &.aei-guide-fade-out {
+        opacity: 0;
+        transition: opacity 0.25s ease-out;
+    }
+}
+
+.aei-guide-ring {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    border: 3px solid #875A7B;
+    border-radius: 10px;
+    box-shadow:
+        0 0 0 4px rgba(135, 90, 123, 0.25),
+        0 0 24px rgba(135, 90, 123, 0.5);
+    transition: left 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                height 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    animation: aei-guide-ring-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes aei-guide-ring-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 4px rgba(135, 90, 123, 0.25),
+            0 0 24px rgba(135, 90, 123, 0.5);
+    }
+    50% {
+        box-shadow:
+            0 0 0 10px rgba(135, 90, 123, 0.1),
+            0 0 32px rgba(135, 90, 123, 0.7);
+    }
+}
+
+.aei-guide-pulse-target {
+    /* extra cue cuando el target está esperando un click */
+    position: relative;
+    z-index: 1;
+}
+
+.aei-guide-cursor {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 32px;
+    height: 32px;
+    pointer-events: none;
+    transform: translate(-100px, -100px);
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
+    opacity: 0;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+    z-index: 2147483641;
+}
+
+.aei-guide-tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    max-width: 320px;
+    min-width: 220px;
+    background: linear-gradient(135deg, #714B67 0%, #875A7B 100%);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.25s ease,
+                transform 0.25s ease,
+                left 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2147483642;
+
+    &[style*="opacity: 1"] {
+        transform: scale(1);
+    }
+
+    .aei-guide-tooltip-body {
+        padding: 14px 16px 12px;
+    }
+
+    .aei-guide-tooltip-text {
+        font-size: 14px;
+        line-height: 1.45;
+        margin-bottom: 12px;
+        word-wrap: break-word;
+    }
+
+    .aei-guide-tooltip-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .aei-guide-progress {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: 0.7;
+        letter-spacing: 0.5px;
+    }
+
+    .aei-guide-actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    button {
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: background 0.15s ease, transform 0.05s ease;
+
+        &:active {
+            transform: translateY(1px);
+        }
+    }
+
+    .aei-guide-skip {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    }
+
+    .aei-guide-next {
+        background: white;
+        color: #714B67;
+
+        &:hover {
+            background: #f3eef2;
+        }
+    }
+
+    /* Flecha del tooltip */
+    .aei-guide-tooltip-arrow {
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-style: solid;
+    }
+
+    &.pos-bottom .aei-guide-tooltip-arrow {
+        top: -8px;
+        left: 50%;
+        margin-left: -8px;
+        border-width: 0 8px 8px 8px;
+        border-color: transparent transparent #714B67 transparent;
+    }
+    &.pos-top .aei-guide-tooltip-arrow {
+        bottom: -8px;
+        left: 50%;
+        margin-left: -8px;
+        border-width: 8px 8px 0 8px;
+        border-color: #875A7B transparent transparent transparent;
+    }
+    &.pos-right .aei-guide-tooltip-arrow {
+        left: -8px;
+        top: 50%;
+        margin-top: -8px;
+        border-width: 8px 8px 8px 0;
+        border-color: transparent #714B67 transparent transparent;
+    }
+    &.pos-left .aei-guide-tooltip-arrow {
+        right: -8px;
+        top: 50%;
+        margin-top: -8px;
+        border-width: 8px 0 8px 8px;
+        border-color: transparent transparent transparent #875A7B;
+    }
+}
+
+.aei-guide-toast {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 2147483643;
+    animation: aei-guide-toast-in 0.25s ease;
+}
+
+@keyframes aei-guide-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

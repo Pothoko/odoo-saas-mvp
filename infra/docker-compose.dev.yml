@@ -1,0 +1,59 @@
+# =============================================================================
+# docker-compose.dev.yml — Local sanity check for AEI / Odoo addons
+#
+# Levanta Postgres 16 + Odoo 18 con el repo entero bind-mounteado como
+# /mnt/extra-addons, para que veas cambios en aei_user_tours,
+# odoo_k8s_saas, payment_qr_mercantil sin tocar k3s y sin pushear a origin.
+#
+# Uso:
+#   cd <repo-root>
+#   docker compose -f infra/docker-compose.dev.yml up -d
+#   # crea la BD desde http://localhost:8069/web/database/manager
+#   # luego instala "AEI User Tours" desde Apps (modo developer)
+#
+# Para apagar:
+#   docker compose -f infra/docker-compose.dev.yml down
+#
+# Para reset total (borra datos):
+#   docker compose -f infra/docker-compose.dev.yml down -v
+# =============================================================================
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: postgres
+    volumes:
+      - aei_dev_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 5s
+      retries: 10
+
+  odoo:
+    image: odoo:18.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    ports:
+      - "8069:8069"   # web
+      - "8072:8072"   # longpolling (chat / live updates)
+    volumes:
+      # Repo entero como addons path. Odoo ignora carpetas sin __manifest__.py
+      # (portal/, k8s/, infra/, etc.) automáticamente.
+      - ..:/mnt/extra-addons:ro
+      - aei_dev_odoo:/var/lib/odoo
+    command:
+      - odoo
+      - --addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+      - --dev=reload,qweb,xml
+      - --log-level=info
+
+volumes:
+  aei_dev_db:
+  aei_dev_odoo:
